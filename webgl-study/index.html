@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>webgl</title>
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- VERTEX SHADER -->
+    <!-- Durante runtime, um atributo a_position de tipo vec2 (2-dimensional vetor)
+    contém positional data sobre um vértice. Converte para um vec4 (4-dimensional vetor)
+    e passa para uma variável global gl_Position. Esse programa é executado uma vez para cada
+    par de coordenadas de vértice. -->
+    <!-- <script id="vertex-shader" type="x-shader/x-vertex">
+      // Declara um atributo que receberá coordenadas 2D de cada vértice
+      attribute vec2 a_position; 
+      
+      void main() {
+        // Converte coordenadas 2D para 4D (x, y, z, w) e define a posição final do vértice
+        // z = 0.0 (profundidade), w = 1.0 (coordenada homogênea para projeção)
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    </script> -->
+
+    <!-- FRAGMENT SHADER -->
+    <!-- No runtime, um fragment shader é executado uma vez para cada pixel dentro dos triângulos.
+    Ele define a cor final de cada pixel através da variável global gl_FragColor.
+    Este shader simplesmente pinta todos os pixels de vermelho. -->
+    <!-- <script id="fragment-shader" type="x-shader/x-fragment">
+      void main() {
+        // Define a cor do pixel como vermelho sólido
+        // Formato: vec4(red, green, blue, alpha) - valores de 0.0 a 1.0
+        // (1.0, 0.0, 0.0, 1.0) = vermelho puro, totalmente opaco
+        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+      }
+    </script> -->
+  </head>
+  <body onload="main()">
+    <canvas id="myCanvas" class="canvas"></canvas>
+    <!-- <script src="./script1.js"></script> -->
+    <script src="./script2.js"></script>
+  </body>
+</html>
