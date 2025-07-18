@@ -61,16 +61,7 @@ function main() {
   gl.enableVertexAttribArray(positionAttributeLocation)
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
 
-  // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
-  const size = 2          // 2 components per iteration
-  const type = gl.FLOAT   // the data is 32bit floats
-  const normalize = false // don't normalize the data
-  const stride = 0        // 0 = move forward size * sizeof(type) each iteration to get the next position
-  const offset = 0        // start at the beginning of the buffer
-  gl.vertexAttribPointer(
-      positionAttributeLocation, size, type, normalize, stride, offset)
-
-
+  gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0)
 
   // First let's make some constiables
   // to hold the translation, width and height of the rectangle
@@ -81,9 +72,8 @@ function main() {
 
   drawScene()
 
-  // Setup a ui.
-  webglLessonsUI.setupSlider("#x", {slide: updatePosition(0), max: gl.canvas.width })
-  webglLessonsUI.setupSlider("#y", {slide: updatePosition(1), max: gl.canvas.height})
+  webglLessonsUI.setupSlider("#x", { slide: updatePosition(0), max: gl.canvas.width  })
+  webglLessonsUI.setupSlider("#y", { slide: updatePosition(1), max: gl.canvas.height})
 
   function updatePosition(index) {
     return function(event, ui) {
@@ -95,10 +85,7 @@ function main() {
   function drawScene() {
     webglUtils.resizeCanvasToDisplaySize(gl.canvas)
 
-    // Tell WebGL how to convert from clip space to pixels
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
-
-    // Clear the canvas
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
