@@ -4,9 +4,44 @@ import { vertexShader, fragmentShader, orbitVertexShader, orbitFragmentShader  }
 import { degToRad } from "./utils.js"
 import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_ORBITS_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
 
+const DIRECTIONS = {
+  FORWARD: 1,
+  BACKWARD: -1,
+}
+
 function main() {
   const canvas = document.querySelector("#canvas")
   const gl = canvas.getContext("webgl2")
+
+  const playPauseButton = document.querySelector(".play-pause-button")
+  const reverseButton = document.querySelector(".reverse-button")
+  const speedSlider = document.querySelector(".speed-slider")
+
+  const playIcon = playPauseButton.querySelector(".fa-play")
+  const pauseIcon = playPauseButton.querySelector(".fa-pause")
+
+  let time = 0
+  let isPaused = false
+  let speed = 1
+  let direction = DIRECTIONS.FORWARD
+  let previousTime = 0
+
+  playPauseButton.addEventListener("click", () => {
+    isPaused = !isPaused
+
+    playIcon.style.display = isPaused ? "none" : "block"
+    pauseIcon.style.display = isPaused ? "block" : "none"
+    
+    if (!isPaused) requestAnimationFrame(updateScene)
+  })
+
+  reverseButton.addEventListener("click", () => {
+    direction = direction === DIRECTIONS.FORWARD ? DIRECTIONS.BACKWARD : DIRECTIONS.FORWARD
+  })
+
+  speedSlider.addEventListener("input", (event) => {
+    speed = parseFloat(event.target.value)
+  })
 
   twgl.setAttributePrefix("a_") // prefixo para os atributos
 
@@ -36,19 +71,29 @@ function main() {
 
   const fieldOfViewRadians = degToRad(60)
 
-  requestAnimationFrame((time) => drawScene({ 
-    time, 
-    gl, 
-    fieldOfViewRadians, 
-    objectsToDraw, 
-    planets,
-    orbits 
-  }))
+  function updateScene(now) {
+    if (!isPaused) {
+      const deltaTime = now - previousTime
+      previousTime = now
+      time += deltaTime * 0.001 * speed * direction
+
+      drawScene({ 
+        time, 
+        gl, 
+        fieldOfViewRadians, 
+        objectsToDraw, 
+        planets,
+        orbits 
+      })
+
+      requestAnimationFrame(updateScene)
+    }
+  }
+
+  requestAnimationFrame(updateScene)
 }
 
 function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits }) {
-  time = time * 0.02
-
   twgl.resizeCanvasToDisplaySize(gl.canvas)
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
@@ -130,8 +175,6 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
     twgl.setUniforms(programInfo, object.uniforms)
     twgl.drawBufferInfo(gl, object.bufferInfo)
   })
-
-  requestAnimationFrame((time) => drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits }))
 }
 
 function createOrbitGeometry(radius, segments = 64) {

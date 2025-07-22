@@ -1,14 +1,46 @@
-body,
-html {
+body {
   margin: 0;
-  padding: 0;
   overflow: hidden;
-  height: 100%;
-  width: 100%;
 }
 
 canvas {
-  display: block;
   width: 100vw;
   height: 100vh;
+  display: block;
+}
+
+.controls-container {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 10px;
+  color: white;
+
+  /* From https://css.glass */
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+button {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+
+  i {
+    color: white;
+  }
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.controls button, .controls label, .controls input {
+  font-size: 16px;
 }
