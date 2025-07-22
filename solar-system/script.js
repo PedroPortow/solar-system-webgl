@@ -1,7 +1,8 @@
 "use strict"
 
-import { vertexShader, fragmentShader } from "./shaders.js"
+import { vertexShader, fragmentShader, orbitVertexShader, orbitFragmentShader  } from "./shaders.js"
 import { degToRad } from "./utils.js"
+import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_ORBITS_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
 
 function main() {
   const canvas = document.querySelector("#canvas")
@@ -9,55 +10,44 @@ function main() {
 
   twgl.setAttributePrefix("a_") // prefixo para os atributos
 
-  /**
-  * @param {WebGL2RenderingContext} gl
-  * @param {number} radius - raio
-  * @param {number} subdivisionAxis - numero de subdivisões no eixo x
-  * @param {number} subdivisionsHeight - numero de subdivisões no eixo y
-  * @returns {Object}
-  * @see https://twgljs.org/docs/module-twgl_primitives.html#.createSphereBufferInfo
-  */
-  const sunBuffer = flattenedPrimitives.createSphereBufferInfo(gl, 15, 12, 6)  // Sol r = 15, 12 segmentos, 6 subdivisões
-  const planetBuffer = flattenedPrimitives.createSphereBufferInfo(gl, 8, 12, 6)  // Planeta r = 8, 12 segmentos, 6 subdivisões
+  const planetsProgram = twgl.createProgramInfo(gl, [vertexShader, fragmentShader])
+  const orbitProgram = twgl.createProgramInfo(gl, [orbitVertexShader, orbitFragmentShader])
 
-  const programInfo = twgl.createProgramInfo(gl, [vertexShader, fragmentShader])
+  const planets = createPlanetsRenderData(gl, planetsProgram, PLANET_DISPLAY_SCALE)
 
-  const sunVAO = twgl.createVAOFromBufferInfo(gl, programInfo, sunBuffer)
-  const planetVAO = twgl.createVAOFromBufferInfo(gl, programInfo, planetBuffer)
+  const objectsToDraw = Object.keys(planets).map(planetKey => ({
+    programInfo: planetsProgram,
+    bufferInfo: planets[planetKey].buffer,
+    vertexArray: planets[planetKey].vao,
+    uniforms: planets[planetKey].uniforms,
+  }))
 
-  const sunUniforms = { u_colorMult: [1, 0.8, 0.2, 1], u_matrix: m4.identity() }
-  const planetUniforms = { u_colorMult: [0.2, 0.5, 1, 1], u_matrix: m4.identity() }
+  const orbits = {
+    program: orbitProgram,
+    ...Object.keys(PLANETS).reduce((acc, planetKey) => {
+      const planet = PLANETS[planetKey]
+      const orbitRadius = PLANET_ORBITS_DISPLAY_SCALE.get(planet)
 
-  const objectsToDraw = [
-    {
-      programInfo: programInfo,
-      bufferInfo: sunBuffer,
-      vertexArray: sunVAO,
-      uniforms: sunUniforms,
-    },
-    {
-      programInfo: programInfo,
-      bufferInfo: planetBuffer,
-      vertexArray: planetVAO,
-      uniforms: planetUniforms,
-    },
-  ]
+      if (orbitRadius) acc[planetKey] = createOrbitBuffer(gl, orbitProgram, orbitRadius)
 
-  requestAnimationFrame((time) => drawScene({ time, gl, fieldOfViewRadians: degToRad(60), objectsToDraw, sunUniforms, planetUniforms }))
+      return acc
+    }, {})
+  }
+
+  const fieldOfViewRadians = degToRad(60)
+
+  requestAnimationFrame((time) => drawScene({ 
+    time, 
+    gl, 
+    fieldOfViewRadians, 
+    objectsToDraw, 
+    planets,
+    orbits 
+  }))
 }
 
-// calcula a matriz de transformação final 
-// todo: mudar pra primeiro calcular todas as transformações e depois aplicar na viewProjectionMatrix?
-function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) {
-  // transalação + rotação x + rotação y
-  let matrix = m4.translate(viewProjectionMatrix, translation[0],  translation[1],  translation[2]) 
-
-  matrix = m4.xRotate(matrix, xRotation)
-  return m4.yRotate(matrix, yRotation)
-}
-
-function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, sunUniforms, planetUniforms }) {
-  time = time * 0.0005
+function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits }) {
+  time = time * 0.02
 
   twgl.resizeCanvasToDisplaySize(gl.canvas)
 
@@ -72,8 +62,8 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, sunUniforms, p
   const aspectRatio = gl.canvas.clientWidth / gl.canvas.clientHeight
   const projectionMatrix = m4.perspective(fieldOfViewRadians, aspectRatio, 1, 2000)
 
-  // buildar a camera
-  const cameraPosition = [0, 0, 120]
+  const cameraDistance = 200
+  const cameraPosition = [0, cameraDistance * 0.4, cameraDistance]
   const lookVector = [0, 0, 0]
   const upVector = [0, 1, 0]
   const cameraMatrix = m4.lookAt(cameraPosition, lookVector, upVector)
@@ -81,17 +71,56 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, sunUniforms, p
   const viewMatrix = m4.inverse(cameraMatrix)
   const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix)
 
-  const sunTranslation = [0, 0, 0]
-  sunUniforms.u_matrix = computeMatrix(viewProjectionMatrix, sunTranslation, 0, 0)
+  // orbita primeiro pra ficar atras dos planeta
+  gl.useProgram(orbits.program.program)
+  
+  const orbitUniforms = {
+    u_viewProjectionMatrix: viewProjectionMatrix,
+    u_orbitColor: [0.4, 0.6, 1.0], // TODO: botar um negocio legal aqui
+    u_alpha: 0.6
+  }
+  
+  twgl.setUniforms(orbits.program, orbitUniforms)
 
-  // Planeta orbitando
-  const planetOrbitRadius = 50
-  const planetOrbitSpeed = time * 1.5
+  gl.enable(gl.BLEND)
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-  const planetTranslation = [ Math.cos(planetOrbitSpeed) * planetOrbitRadius, 0, Math.sin(planetOrbitSpeed) * planetOrbitRadius]
-  const planetRotation = time * 2
+  Object.keys(orbits).forEach(planetKey => {
+    if (planetKey !== 'program') {
+      gl.bindVertexArray(orbits[planetKey].vao)
+      gl.drawArrays(gl.LINE_STRIP, 0, orbits[planetKey].numElements)
+    }
+  })
 
-  planetUniforms.u_matrix = computeMatrix( viewProjectionMatrix, planetTranslation, 0, planetRotation)
+  gl.disable(gl.BLEND)
+
+  console.log({planets})
+
+  Object.keys(planets).forEach(planetKey => {
+    const planet = PLANETS[planetKey]
+    const planetRenderable = planets[planetKey]
+    const speedInfo = PLANET_SPEEDS.get(planet)
+    
+    
+    if (PLANETS[planetKey] === PLANETS.SUN) {
+      const sunRotation = time * speedInfo.rotation
+      planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, [0, 0, 0], 0, sunRotation)
+    } else {
+      const orbitRadius = PLANET_ORBITS_DISPLAY_SCALE.get(planet)
+      
+      if (speedInfo && orbitRadius) {
+        const orbitSpeed = time * speedInfo.orbit
+        const translation = [
+          Math.cos(orbitSpeed) * orbitRadius,
+          0,
+          Math.sin(orbitSpeed) * orbitRadius
+        ]
+        const rotation = time * speedInfo.rotation
+        
+        planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, translation, 0, rotation)
+      }
+    }
+  })
 
   objectsToDraw.forEach(function(object) {
     const programInfo = object.programInfo
@@ -102,7 +131,63 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, sunUniforms, p
     twgl.drawBufferInfo(gl, object.bufferInfo)
   })
 
-  requestAnimationFrame((time) => drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, sunUniforms, planetUniforms }))
+  requestAnimationFrame((time) => drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits }))
+}
+
+function createOrbitGeometry(radius, segments = 64) {
+  const positions = []
+  
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i / segments) * Math.PI * 2
+    const x = Math.cos(angle) * radius
+    const z = Math.sin(angle) * radius
+    const y = 0 // órbitas no plano XZ
+    
+    positions.push(x, y, z)
+  }
+
+  return new Float32Array(positions)
+}
+
+function createOrbitBuffer(gl, programInfo, radius) {
+  const positions = createOrbitGeometry(radius)
+  
+  const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
+    position: { numComponents: 3, data: positions }
+  })
+
+  const vao = twgl.createVAOFromBufferInfo(gl, programInfo, bufferInfo)
+  
+  return { bufferInfo, vao, numElements: positions.length / 3 }
+}
+
+function createPlanetsRenderData(gl, program, scale) {
+  const planets = {}
+
+  Object.keys(PLANETS).forEach(planetKey => {
+    const planet = PLANETS[planetKey]
+    const radius = scale.get(planet)
+    
+    if (radius) {
+      const detail = planetKey === 'SUN' ? [24, 12] : [16, 8]
+      const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, detail[0], detail[1])
+      
+      planets[planetKey] = {
+        buffer,
+        uniforms: { u_colorMult: planet.color, u_matrix: m4.identity() },
+        vao: twgl.createVAOFromBufferInfo(gl, program, buffer)
+      }
+    }
+  })
+
+  return planets
+}
+
+function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) {
+  // transalação + rotação x + rotação y
+  let matrix = m4.translate(viewProjectionMatrix, translation[0], translation[1], translation[2]) 
+  matrix = m4.xRotate(matrix, xRotation)
+  return m4.yRotate(matrix, yRotation)
 }
 
 main()

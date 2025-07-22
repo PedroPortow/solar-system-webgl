@@ -26,3 +26,26 @@ export const fragmentShader = `#version 300 es
     outColor = v_color * u_colorMult;
   }
 `
+
+export const orbitVertexShader = `#version 300 es
+  in vec4 a_position;
+
+  uniform mat4 u_viewProjectionMatrix;
+
+  void main() {
+    gl_Position = u_viewProjectionMatrix * a_position;
+  }
+`;
+
+export const orbitFragmentShader = `#version 300 es
+  precision mediump float;
+
+  uniform vec3 u_orbitColor;
+  uniform float u_alpha;
+
+  out vec4 outColor;
+
+  void main() {
+    outColor = vec4(u_orbitColor, u_alpha);
+  }
+`; 
