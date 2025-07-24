@@ -1,13 +1,10 @@
 "use strict"
 
-import { vertexShader, fragmentShader, orbitVertexShader, orbitFragmentShader  } from "./shaders.js"
+import { vertexShader, fragmentShader, orbitVertexShader, orbitFragmentShader } from "./shaders.js"
 import { degToRad } from "./utils.js"
 import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_ORBITS_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
 
-const DIRECTIONS = {
-  FORWARD: 1,
-  BACKWARD: -1,
-}
+const DIRECTIONS = { FORWARD: 1, BACKWARD: -1 }
 
 function main() {
   const canvas = document.querySelector("#canvas")
@@ -26,12 +23,47 @@ function main() {
   let direction = DIRECTIONS.FORWARD
   let previousTime = 0
 
+  let cameraAngleX = 0
+  let cameraAngleY = Math.PI / 3
+  let cameraDistance = 250
+  let isDragging = false
+  let previousMouseX = 0
+  let previousMouseY = 0
+
+  canvas.addEventListener("mousedown", (e) => {
+    if (e.button === 0) {
+      isDragging = true
+      previousMouseX = e.clientX
+      previousMouseY = e.clientY
+    }
+  })
+  canvas.addEventListener("mouseup", () => { isDragging = false })
+  canvas.addEventListener("mouseleave", () => { isDragging = false })
+
+  canvas.addEventListener("mousemove", (e) => {
+    if (!isDragging) return
+    const deltaX = e.clientX - previousMouseX
+    const deltaY = e.clientY - previousMouseY
+    previousMouseX = e.clientX
+    previousMouseY = e.clientY
+
+    cameraAngleX += deltaX * 0.005
+    cameraAngleY += deltaY * 0.005
+    cameraAngleY = Math.max(0.1, Math.min(Math.PI - 0.1, cameraAngleY))
+  })
+
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault()
+    cameraDistance += e.deltaY
+    cameraDistance = Math.max(25, Math.min(1000, cameraDistance))
+  })
+
   playPauseButton.addEventListener("click", () => {
     isPaused = !isPaused
 
     playIcon.style.display = isPaused ? "none" : "block"
     pauseIcon.style.display = isPaused ? "block" : "none"
-    
+
     if (!isPaused) requestAnimationFrame(updateScene)
   })
 
@@ -69,31 +101,41 @@ function main() {
     }, {})
   }
 
+  console.log({orbits, planets})
+
   const fieldOfViewRadians = degToRad(60)
 
-  function updateScene(now) {
-    if (!isPaused) {
-      const deltaTime = now - previousTime
-      previousTime = now
-      time += deltaTime * 0.001 * speed * direction
+  const updateScene = (now) => {
+    if (isPaused) return
 
-      drawScene({ 
-        time, 
-        gl, 
-        fieldOfViewRadians, 
-        objectsToDraw, 
-        planets,
-        orbits 
-      })
+    const deltaTime = now - previousTime
 
-      requestAnimationFrame(updateScene)
+    previousTime = now
+    time += deltaTime * speed * direction * 0.001
+
+    const camera = {
+      angleX: cameraAngleX,
+      angleY: cameraAngleY,
+      distance: cameraDistance
     }
+
+    drawScene({
+      time,
+      gl,
+      fieldOfViewRadians,
+      objectsToDraw,
+      planets,
+      orbits,
+      camera,
+    })
+
+    requestAnimationFrame(updateScene)
   }
 
   requestAnimationFrame(updateScene)
 }
 
-function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits }) {
+function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits, camera }) {
   twgl.resizeCanvasToDisplaySize(gl.canvas)
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
@@ -107,8 +149,12 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
   const aspectRatio = gl.canvas.clientWidth / gl.canvas.clientHeight
   const projectionMatrix = m4.perspective(fieldOfViewRadians, aspectRatio, 1, 2000)
 
-  const cameraDistance = 200
-  const cameraPosition = [0, cameraDistance * 0.4, cameraDistance]
+  const cameraPosition = [
+    camera.distance * Math.sin(camera.angleY) * Math.cos(camera.angleX),
+    camera.distance * Math.cos(camera.angleY),
+    camera.distance * Math.sin(camera.angleY) * Math.sin(camera.angleX)
+  ]
+
   const lookVector = [0, 0, 0]
   const upVector = [0, 1, 0]
   const cameraMatrix = m4.lookAt(cameraPosition, lookVector, upVector)
@@ -118,13 +164,13 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
 
   // orbita primeiro pra ficar atras dos planeta
   gl.useProgram(orbits.program.program)
-  
+
   const orbitUniforms = {
     u_viewProjectionMatrix: viewProjectionMatrix,
     u_orbitColor: [0.4, 0.6, 1.0], // TODO: botar um negocio legal aqui
     u_alpha: 0.6
   }
-  
+
   twgl.setUniforms(orbits.program, orbitUniforms)
 
   gl.enable(gl.BLEND)
@@ -145,14 +191,14 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
     const planet = PLANETS[planetKey]
     const planetRenderable = planets[planetKey]
     const speedInfo = PLANET_SPEEDS.get(planet)
-    
-    
+
+
     if (PLANETS[planetKey] === PLANETS.SUN) {
       const sunRotation = time * speedInfo.rotation
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, [0, 0, 0], 0, sunRotation)
     } else {
       const orbitRadius = PLANET_ORBITS_DISPLAY_SCALE.get(planet)
-      
+
       if (speedInfo && orbitRadius) {
         const orbitSpeed = time * speedInfo.orbit
         const translation = [
@@ -161,7 +207,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
           Math.sin(orbitSpeed) * orbitRadius
         ]
         const rotation = time * speedInfo.rotation
-        
+
         planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, translation, 0, rotation)
       }
     }
@@ -179,13 +225,13 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
 
 function createOrbitGeometry(radius, segments = 64) {
   const positions = []
-  
+
   for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2
     const x = Math.cos(angle) * radius
     const z = Math.sin(angle) * radius
     const y = 0 // órbitas no plano XZ
-    
+
     positions.push(x, y, z)
   }
 
@@ -194,13 +240,13 @@ function createOrbitGeometry(radius, segments = 64) {
 
 function createOrbitBuffer(gl, programInfo, radius) {
   const positions = createOrbitGeometry(radius)
-  
+
   const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
     position: { numComponents: 3, data: positions }
   })
 
   const vao = twgl.createVAOFromBufferInfo(gl, programInfo, bufferInfo)
-  
+
   return { bufferInfo, vao, numElements: positions.length / 3 }
 }
 
@@ -210,11 +256,11 @@ function createPlanetsRenderData(gl, program, scale) {
   Object.keys(PLANETS).forEach(planetKey => {
     const planet = PLANETS[planetKey]
     const radius = scale.get(planet)
-    
+
     if (radius) {
       const detail = planetKey === 'SUN' ? [24, 12] : [16, 8]
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, detail[0], detail[1])
-      
+
       planets[planetKey] = {
         buffer,
         uniforms: { u_colorMult: planet.color, u_matrix: m4.identity() },
@@ -228,7 +274,7 @@ function createPlanetsRenderData(gl, program, scale) {
 
 function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) {
   // transalação + rotação x + rotação y
-  let matrix = m4.translate(viewProjectionMatrix, translation[0], translation[1], translation[2]) 
+  let matrix = m4.translate(viewProjectionMatrix, translation[0], translation[1], translation[2])
   matrix = m4.xRotate(matrix, xRotation)
   return m4.yRotate(matrix, yRotation)
 }
