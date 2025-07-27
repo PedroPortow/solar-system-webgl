@@ -1,6 +1,6 @@
 "use strict"
 
-import { texturedVertexShader, texturedFragmentShader, orbitVertexShader, orbitFragmentShader } from "./shaders.js"
+import { texturedVertexShader, texturedFragmentShader, orbitVertexShader, orbitFragmentShader, skyboxVertexShader, skyboxFragmentShader } from "./shaders.js"
 import { convertHGIToCartesian, degToRad } from "./utils/main.js"
 import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_ORBITS_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
 import { EARTH_TRAJECTORY } from "./trajectories/earthTrajectory.js"
@@ -102,6 +102,7 @@ function main() {
 
   const planetsProgram = twgl.createProgramInfo(gl, [texturedVertexShader, texturedFragmentShader])
   const orbitProgram = twgl.createProgramInfo(gl, [orbitVertexShader, orbitFragmentShader])
+  const skyboxProgram = twgl.createProgramInfo(gl, [skyboxVertexShader, skyboxFragmentShader])
 
   const planetTextures = {
     MERCURY: twgl.createTexture(gl, {
@@ -143,8 +144,13 @@ function main() {
     PLUTO: twgl.createTexture(gl, {
       src: './assets/plutomap2k.jpg',
       crossOrigin: ''
-    })
+    }),
   }
+
+  const skyboxTexture = twgl.createTexture(gl, {
+    src: './assets/8k_stars_milky_way.jpg',
+    crossOrigin: ''
+  })
 
   const planets = createPlanetsRenderData(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
 
@@ -174,6 +180,8 @@ function main() {
     }, {})
   }
 
+  const skybox = createSkybox(gl, skyboxProgram, skyboxTexture)
+
   const fieldOfViewRadians = degToRad(60)
 
   const updateScene = (now) => {
@@ -197,6 +205,7 @@ function main() {
       objectsToDraw,
       planets,
       orbits,
+      skybox,
       camera,
     })
 
@@ -258,7 +267,7 @@ function createPlanetOrbit(planetKey) {
   return new Float32Array(positions)
 }
 
-function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits, camera }) {
+function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits, skybox, camera }) {
   twgl.resizeCanvasToDisplaySize(gl.canvas)
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
@@ -284,6 +293,30 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
 
   const viewMatrix = m4.inverse(cameraMatrix)
   const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix)
+
+  // Desativa o negócio de não desenhar as coisas de trás, porque nós estamos dentro da
+  // esfera da skybox 
+  gl.disable(gl.CULL_FACE)
+  gl.useProgram(skybox.program.program)
+  gl.bindVertexArray(skybox.vao)
+
+  const skyboxMatrix = m4.copy(viewMatrix)
+  /*
+    tira a translação pra n se mexer coma camera
+    [ x    x    x   0  
+      x    x    x   0  
+      x    x    x   0  
+      0    0    0   1  ]
+  */
+  skyboxMatrix[12] = 0
+  skyboxMatrix[13] = 0
+  skyboxMatrix[14] = 0
+  
+  const skyboxProjectionMatrix = m4.multiply(projectionMatrix, skyboxMatrix)
+  
+  twgl.setUniforms(skybox.program, { u_viewProjectionMatrix: skyboxProjectionMatrix, u_texture: skybox.texture })
+  twgl.drawBufferInfo(gl, skybox.bufferInfo)
+  gl.enable(gl.CULL_FACE)
 
   // orbita primeiro pra ficar atras dos planeta
   gl.useProgram(orbits.program.program)
@@ -390,7 +423,6 @@ function createPlanetsRenderData(gl, program, textures, scale) {
         u_colorMult: planet.color,
         u_matrix: m4.identity(),
         u_texture: textures[planetKey],
-        u_useTexture: true
       }
 
       planets[planetKey] = {
@@ -409,6 +441,18 @@ function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) 
   let matrix = m4.translate(viewProjectionMatrix, translation[0], translation[1], translation[2])
   matrix = m4.xRotate(matrix, xRotation)
   return m4.yRotate(matrix, yRotation)
+}
+
+function createSkybox(gl, program, texture) {
+  const sphereBufferInfo = flattenedPrimitives.createSphereBufferInfo(gl, 2000, 32, 16)
+  const vao = twgl.createVAOFromBufferInfo(gl, program, sphereBufferInfo)
+  
+  return {
+    program,
+    bufferInfo: sphereBufferInfo,
+    vao,
+    texture
+  }
 }
 
 main()

@@ -2,6 +2,7 @@ Referências
 
 https://webgl2fundamentals.org/webgl/lessons/webgl-skybox.html
 https://twgljs.org/docs/
+https://www.solarsystemscope.com/textures/
 
 
 Todo:
