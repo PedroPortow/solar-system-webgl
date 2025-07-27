@@ -1,6 +1,6 @@
 "use strict"
 
-import { vertexShader, fragmentShader, orbitVertexShader, orbitFragmentShader } from "./shaders.js"
+import { texturedVertexShader, texturedFragmentShader, orbitVertexShader, orbitFragmentShader } from "./shaders.js"
 import { convertHGIToCartesian, degToRad } from "./utils/main.js"
 import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_ORBITS_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
 import { EARTH_TRAJECTORY } from "./trajectories/earthTrajectory.js"
@@ -26,6 +26,8 @@ const PLANET_TRAJECTORIES = {
   'URANUS': URANUS_TRAJECTORY,
   'VENUS': VENUS_TRAJECTORY
 }
+
+
 
 function main() {
   const canvas = document.querySelector("#canvas")
@@ -72,13 +74,13 @@ function main() {
     cameraAngleY += deltaY * 0.005
     cameraAngleY = Math.max(0.1, Math.min(Math.PI - 0.1, cameraAngleY))
   })
-
+  
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault()
     cameraDistance += e.deltaY
     cameraDistance = Math.max(25, Math.min(1000, cameraDistance))
   })
-
+  
   playPauseButton.addEventListener("click", () => {
     isPaused = !isPaused
 
@@ -98,10 +100,53 @@ function main() {
 
   twgl.setAttributePrefix("a_") // prefixo para os atributos
 
-  const planetsProgram = twgl.createProgramInfo(gl, [vertexShader, fragmentShader])
+  const planetsProgram = twgl.createProgramInfo(gl, [texturedVertexShader, texturedFragmentShader])
   const orbitProgram = twgl.createProgramInfo(gl, [orbitVertexShader, orbitFragmentShader])
 
-  const planets = createPlanetsRenderData(gl, planetsProgram, PLANET_DISPLAY_SCALE)
+  const planetTextures = {
+    MERCURY: twgl.createTexture(gl, {
+      src: './assets/2k_mercury.jpg',
+      crossOrigin: ''
+    }),
+    VENUS: twgl.createTexture(gl, {
+      src: './assets/2k_venus_surface.jpg',
+      crossOrigin: ''
+    }),
+    EARTH: twgl.createTexture(gl, {
+      src: './assets/2k_earth_daymap.jpg',
+      crossOrigin: ''
+    }),
+    MARS: twgl.createTexture(gl, {
+      src: './assets/2k_mars.jpg',
+      crossOrigin: ''
+    }),
+    JUPITER: twgl.createTexture(gl, {
+      src: './assets/2k_jupiter.jpg',
+      crossOrigin: ''
+    }),
+    SATURN: twgl.createTexture(gl, {
+      src: './assets/2k_saturn.jpg',
+      crossOrigin: ''
+    }),
+    URANUS: twgl.createTexture(gl, {
+      src: './assets/2k_uranus.jpg',
+      crossOrigin: ''
+    }),
+    NEPTUNE: twgl.createTexture(gl, {
+      src: './assets/2k_neptune.jpg',
+      crossOrigin: ''
+    }),
+    SUN: twgl.createTexture(gl, {
+      src: './assets/8k_sun.jpg',
+      crossOrigin: ''
+    }),
+    PLUTO: twgl.createTexture(gl, {
+      src: './assets/plutomap2k.jpg',
+      crossOrigin: ''
+    })
+  }
+
+  const planets = createPlanetsRenderData(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
 
   const objectsToDraw = Object.keys(planets).map(planetKey => ({
     programInfo: planetsProgram,
@@ -120,6 +165,8 @@ function main() {
         const orbitRadius = PLANET_ORBITS_DISPLAY_SCALE.get(planet)
         if (orbitRadius) acc[planetKey] = createOrbitBuffer(gl, orbitProgram, orbitRadius)
       } else {
+    
+        // acc[planetKey] = createOrbitBuffer(gl, orbitProgram, PLANET_ORBITS_DISPLAY_SCALE.get(planet))
         acc[planetKey] = createPlanetOrbitBuffer(gl, orbitProgram, planetKey)
       }
 
@@ -198,15 +245,15 @@ function createPlanetOrbit(planetKey) {
       aí a tem vezes q n fecha os 360 graus da órbita bonita e fica com descontinuidades
       então tem q fechar
   */
-  const firstPoint = planetTrajectory[0]
-  const lastPoint = planetTrajectory[planetTrajectory.length - 1]
+  // const firstPoint = planetTrajectory[0]
+  // const lastPoint = planetTrajectory[planetTrajectory.length - 1]
 
-  const angleDiff = Math.abs(firstPoint.HGI_LON - lastPoint.HGI_LON)
-  const normalizedAngleDiff = Math.min(angleDiff, 360 - angleDiff)
+  // const angleDiff = Math.abs(firstPoint.HGI_LON - lastPoint.HGI_LON)
+  // const normalizedAngleDiff = Math.min(angleDiff, 360 - angleDiff)
 
-  if (normalizedAngleDiff < 30) {
-    positions.push(positions[0], positions[1], positions[2])
-  }
+  // if (normalizedAngleDiff < 30) {
+  //   positions.push(positions[0], positions[1], positions[2])
+  // }
 
   return new Float32Array(positions)
 }
@@ -272,7 +319,6 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
     } else {
       const planetPosition = getPlanetPositionFromTrajectory(planetKey, time * 250)
 
-      console.log({planetPosition})
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, planetPosition, 0, 4)
     }
   })
@@ -317,6 +363,8 @@ function createOrbitBuffer(gl, programInfo, radius) {
 function createPlanetOrbitBuffer(gl, orbitPogram, planetKey) {
   const positions = createPlanetOrbit(planetKey)
 
+  console.log({ positions })
+
   const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
     position: { numComponents: 3, data: positions }
   })
@@ -326,7 +374,7 @@ function createPlanetOrbitBuffer(gl, orbitPogram, planetKey) {
   return { bufferInfo, vao, numElements: positions.length / 3 }
 }
 
-function createPlanetsRenderData(gl, program, scale) {
+function createPlanetsRenderData(gl, program, textures, scale) {
   const planets = {}
 
   Object.keys(PLANETS).forEach(planetKey => {
@@ -335,11 +383,19 @@ function createPlanetsRenderData(gl, program, scale) {
 
     if (radius) {
       const detail = planetKey === 'SUN' ? [24, 12] : [16, 8]
+      
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, detail[0], detail[1])
+      
+      const uniforms = {
+        u_colorMult: planet.color,
+        u_matrix: m4.identity(),
+        u_texture: textures[planetKey],
+        u_useTexture: true
+      }
 
       planets[planetKey] = {
         buffer,
-        uniforms: { u_colorMult: planet.color, u_matrix: m4.identity() },
+        uniforms,
         vao: twgl.createVAOFromBufferInfo(gl, program, buffer)
       }
     }
