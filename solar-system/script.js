@@ -1,8 +1,7 @@
 "use strict"
 
-import { texturedVertexShader, texturedFragmentShader, orbitVertexShader, orbitFragmentShader, skyboxVertexShader, skyboxFragmentShader } from "./shaders.js"
-import { convertHGIToCartesian, degToRad } from "./utils/main.js"
-import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_ORBITS_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
+import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
+import { orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, texturedFragmentShader, texturedVertexShader } from "./shaders.js"
 import { EARTH_TRAJECTORY } from "./trajectories/earthTrajectory.js"
 import { JUPITER_TRAJECTORY } from "./trajectories/jupiterTrajectory.js"
 import { MARS_TRAJECTORY } from "./trajectories/marsTrajectory.js"
@@ -12,6 +11,7 @@ import { PLUTO_TRAJECTORY } from "./trajectories/plutoTrajectory.js"
 import { SATURN_TRAJECTORY } from "./trajectories/saturnTrajectory.js"
 import { URANUS_TRAJECTORY } from "./trajectories/uranusTrajectory.js"
 import { VENUS_TRAJECTORY } from "./trajectories/venusTrajectory.js"
+import { convertHGIToCartesian, degToRad } from "./utils/index.js"
 
 const DIRECTIONS = { FORWARD: 1, BACKWARD: -1 }
 
@@ -27,6 +27,22 @@ const PLANET_TRAJECTORIES = {
   'VENUS': VENUS_TRAJECTORY
 }
 
+const TEXTURES = {
+  'MERCURY': './assets/2k_mercury.jpg',
+  'VENUS': './assets/2k_venus_surface.jpg',
+  'EARTH': './assets/2k_earth_daymap.jpg',
+  'MARS': './assets/2k_mars.jpg',
+  'JUPITER': './assets/2k_jupiter.jpg',
+  'SATURN': './assets/2k_saturn.jpg',
+  'URANUS': './assets/2k_uranus.jpg',
+  'NEPTUNE': './assets/2k_neptune.jpg',
+  'SUN': './assets/8k_sun.jpg',
+  'PLUTO': './assets/plutomap2k.jpg',
+}
+
+const OUTER_PLANETS = ['MARS', 'JUPITER', 'SATURN', 'URANUS', 'NEPTUNE', 'PLUTO']
+
+const AU_TO_DISPLAY_UNITS = 50;
 
 
 function main() {
@@ -74,13 +90,13 @@ function main() {
     cameraAngleY += deltaY * 0.005
     cameraAngleY = Math.max(0.1, Math.min(Math.PI - 0.1, cameraAngleY))
   })
-  
+
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault()
     cameraDistance += e.deltaY
     cameraDistance = Math.max(25, Math.min(1000, cameraDistance))
   })
-  
+
   playPauseButton.addEventListener("click", () => {
     isPaused = !isPaused
 
@@ -104,48 +120,14 @@ function main() {
   const orbitProgram = twgl.createProgramInfo(gl, [orbitVertexShader, orbitFragmentShader])
   const skyboxProgram = twgl.createProgramInfo(gl, [skyboxVertexShader, skyboxFragmentShader])
 
-  const planetTextures = {
-    MERCURY: twgl.createTexture(gl, {
-      src: './assets/2k_mercury.jpg',
+  const planetTextures = Object.keys(PLANETS).reduce((acc, planetKey) => {
+    acc[planetKey] = twgl.createTexture(gl, {
+      src: TEXTURES[planetKey],
       crossOrigin: ''
-    }),
-    VENUS: twgl.createTexture(gl, {
-      src: './assets/2k_venus_surface.jpg',
-      crossOrigin: ''
-    }),
-    EARTH: twgl.createTexture(gl, {
-      src: './assets/2k_earth_daymap.jpg',
-      crossOrigin: ''
-    }),
-    MARS: twgl.createTexture(gl, {
-      src: './assets/2k_mars.jpg',
-      crossOrigin: ''
-    }),
-    JUPITER: twgl.createTexture(gl, {
-      src: './assets/2k_jupiter.jpg',
-      crossOrigin: ''
-    }),
-    SATURN: twgl.createTexture(gl, {
-      src: './assets/2k_saturn.jpg',
-      crossOrigin: ''
-    }),
-    URANUS: twgl.createTexture(gl, {
-      src: './assets/2k_uranus.jpg',
-      crossOrigin: ''
-    }),
-    NEPTUNE: twgl.createTexture(gl, {
-      src: './assets/2k_neptune.jpg',
-      crossOrigin: ''
-    }),
-    SUN: twgl.createTexture(gl, {
-      src: './assets/8k_sun.jpg',
-      crossOrigin: ''
-    }),
-    PLUTO: twgl.createTexture(gl, {
-      src: './assets/plutomap2k.jpg',
-      crossOrigin: ''
-    }),
-  }
+    })
+
+    return acc
+  }, {})
 
   const skyboxTexture = twgl.createTexture(gl, {
     src: './assets/8k_stars_milky_way.jpg',
@@ -166,14 +148,8 @@ function main() {
     ...Object.keys(PLANETS).reduce((acc, planetKey) => {
       const planet = PLANETS[planetKey]
 
-      // TODo: arrumar isso aqui nem sei pq eu tava fazendo isso
-      if (planetKey === 'SUN') {
-        const orbitRadius = PLANET_ORBITS_DISPLAY_SCALE.get(planet)
-        if (orbitRadius) acc[planetKey] = createOrbitBuffer(gl, orbitProgram, orbitRadius)
-      } else {
-    
-        // acc[planetKey] = createOrbitBuffer(gl, orbitProgram, PLANET_ORBITS_DISPLAY_SCALE.get(planet))
-        acc[planetKey] = createPlanetOrbitBuffer(gl, orbitProgram, planetKey)
+      if (planetKey !== 'SUN') {
+        acc[planetKey] = OUTER_PLANETS.includes(planetKey) ? createCalculatedOrbitBuffer(gl, orbitProgram, planet) : createTrajectoryOrbitBuffer(gl, orbitProgram, planetKey)
       }
 
       return acc
@@ -226,8 +202,8 @@ function getPlanetPositionFromTrajectory(planetKey, time) {
   const currentPoint = trajectory[currentIndex]
   const nextPoint = trajectory[nextIndex]
 
-  const currentPos = convertHGIToCartesian(currentPoint.RAD_AU, currentPoint.HGI_LAT, currentPoint.HGI_LON)
-  const nextPos = convertHGIToCartesian(nextPoint.RAD_AU, nextPoint.HGI_LAT, nextPoint.HGI_LON)
+  const currentPos = convertHGIToCartesian(currentPoint.RAD_AU, currentPoint.HGI_LAT, currentPoint.HGI_LON, AU_TO_DISPLAY_UNITS)
+  const nextPos = convertHGIToCartesian(nextPoint.RAD_AU, nextPoint.HGI_LAT, nextPoint.HGI_LON, AU_TO_DISPLAY_UNITS)
 
 
   // TODO: Quando troca de posição tá dando umas travadinhas acho que é algo de interpolação? tem q ser mais suave?
@@ -238,6 +214,30 @@ function getPlanetPositionFromTrajectory(planetKey, time) {
   ]
 }
 
+function getPlanetPositionFromOrbitalElements(planet, time) {
+  const { semiMajorAxis, eccentricity, inclination } = planet.orbitalElements
+  const { orbitalPeriod } = planet
+  
+  const a = semiMajorAxis * AU_TO_DISPLAY_UNITS
+  const b = a * Math.sqrt(1 - eccentricity * eccentricity)
+  const incRad = degToRad(inclination)
+  
+  const angle = (time * 2 * Math.PI) / orbitalPeriod
+  
+  const xOrb = a * Math.cos(angle)
+  const yOrb = 0
+  const zOrb = b * Math.sin(angle)
+  
+  const cosInc = Math.cos(incRad)
+  const sinInc = Math.sin(incRad)
+  
+  const x = xOrb
+  const y = yOrb * cosInc - zOrb * sinInc
+  const z = yOrb * sinInc + zOrb * cosInc
+  
+  return [x, y, z]
+}
+
 function createPlanetOrbit(planetKey) {
   const positions = []
 
@@ -245,7 +245,7 @@ function createPlanetOrbit(planetKey) {
 
   for (let i = 0; i < planetTrajectory.length; ++i) {
     const point = planetTrajectory[i]
-    const [x, y, z] = convertHGIToCartesian(point.RAD_AU, point.HGI_LAT, point.HGI_LON)
+    const [x, y, z] = convertHGIToCartesian(point.RAD_AU, point.HGI_LAT, point.HGI_LON, AU_TO_DISPLAY_UNITS)
     positions.push(x, y, z)
   }
 
@@ -295,7 +295,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
   const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix)
 
   // Desativa o negócio de não desenhar as coisas de trás, porque nós estamos dentro da
-  // esfera da skybox 
+  // esfera da skybox
   gl.disable(gl.CULL_FACE)
   gl.useProgram(skybox.program.program)
   gl.bindVertexArray(skybox.vao)
@@ -303,17 +303,17 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
   const skyboxMatrix = m4.copy(viewMatrix)
   /*
     tira a translação pra n se mexer coma camera
-    [ x    x    x   0  
-      x    x    x   0  
-      x    x    x   0  
+    [ x    x    x   0
+      x    x    x   0
+      x    x    x   0
       0    0    0   1  ]
   */
   skyboxMatrix[12] = 0
   skyboxMatrix[13] = 0
   skyboxMatrix[14] = 0
-  
+
   const skyboxProjectionMatrix = m4.multiply(projectionMatrix, skyboxMatrix)
-  
+
   twgl.setUniforms(skybox.program, { u_viewProjectionMatrix: skyboxProjectionMatrix, u_texture: skybox.texture })
   twgl.drawBufferInfo(gl, skybox.bufferInfo)
   gl.enable(gl.CULL_FACE)
@@ -350,9 +350,10 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
       const sunRotation = time * speedInfo.rotation
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, [0, 0, 0], 0, sunRotation)
     } else {
-      const planetPosition = getPlanetPositionFromTrajectory(planetKey, time * 250)
+      const planetPosition = OUTER_PLANETS.includes(planetKey) ? getPlanetPositionFromOrbitalElements(planet, time * 100) : getPlanetPositionFromTrajectory(planetKey, time * 100)
+      const planetRotation = time * speedInfo.rotation
 
-      planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, planetPosition, 0, 4)
+      planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, planetPosition, 0, planetRotation)
     }
   })
 
@@ -366,34 +367,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
   })
 }
 
-function createOrbitGeometry(radius, segments = 64) {
-  const positions = []
-
-  for (let i = 0; i <= segments; i++) {
-    const angle = (i / segments) * Math.PI * 2
-    const x = Math.cos(angle) * radius
-    const z = Math.sin(angle) * radius
-    const y = 0 // órbitas no plano XZ
-
-    positions.push(x, y, z)
-  }
-
-  return new Float32Array(positions)
-}
-
-function createOrbitBuffer(gl, programInfo, radius) {
-  const positions = createOrbitGeometry(radius)
-
-  const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
-    position: { numComponents: 3, data: positions }
-  })
-
-  const vao = twgl.createVAOFromBufferInfo(gl, programInfo, bufferInfo)
-
-  return { bufferInfo, vao, numElements: positions.length / 3 }
-}
-
-function createPlanetOrbitBuffer(gl, orbitPogram, planetKey) {
+function createTrajectoryOrbitBuffer(gl, orbitPogram, planetKey) {
   const positions = createPlanetOrbit(planetKey)
 
   console.log({ positions })
@@ -407,6 +381,54 @@ function createPlanetOrbitBuffer(gl, orbitPogram, planetKey) {
   return { bufferInfo, vao, numElements: positions.length / 3 }
 }
 
+function createCalculatedOrbitBuffer(gl, orbitProgram, planet) {
+  const { semiMajorAxis, eccentricity, inclination } = planet.orbitalElements
+  
+  const positions = createOrbitGeomtry(
+    semiMajorAxis, 
+    eccentricity, 
+    inclination, 
+    256, 
+    AU_TO_DISPLAY_UNITS
+  )
+
+  const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
+    position: { numComponents: 3, data: positions }
+  })
+
+  const vao = twgl.createVAOFromBufferInfo(gl, orbitProgram, bufferInfo)
+
+  return { bufferInfo, vao, numElements: positions.length / 3 }
+}
+
+ function createOrbitGeomtry(semiMajorAxis, eccentricity, inclination, segments = 128, auToUnits = 50) {
+  const positions = []
+  
+  const a = semiMajorAxis * auToUnits
+  const b = a * Math.sqrt(1 - eccentricity * eccentricity)
+  const incRad = degToRad(inclination)
+  
+  const cosInc = Math.cos(incRad)
+  const sinInc = Math.sin(incRad)
+  
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i / segments) * Math.PI * 2
+    
+    const xOrb = a * Math.cos(angle)
+    const yOrb = 0
+    const zOrb = b * Math.sin(angle)
+    
+    const x = xOrb
+    const y = yOrb * cosInc - zOrb * sinInc
+    const z = yOrb * sinInc + zOrb * cosInc
+    
+    positions.push(x, y, z)
+  }
+  
+  return new Float32Array(positions)
+}
+
+
 function createPlanetsRenderData(gl, program, textures, scale) {
   const planets = {}
 
@@ -416,9 +438,9 @@ function createPlanetsRenderData(gl, program, textures, scale) {
 
     if (radius) {
       const detail = planetKey === 'SUN' ? [24, 12] : [16, 8]
-      
+
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, detail[0], detail[1])
-      
+
       const uniforms = {
         u_colorMult: planet.color,
         u_matrix: m4.identity(),
@@ -446,7 +468,7 @@ function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) 
 function createSkybox(gl, program, texture) {
   const sphereBufferInfo = flattenedPrimitives.createSphereBufferInfo(gl, 2000, 32, 16)
   const vao = twgl.createVAOFromBufferInfo(gl, program, sphereBufferInfo)
-  
+
   return {
     program,
     bufferInfo: sphereBufferInfo,
