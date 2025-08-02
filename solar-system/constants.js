@@ -1,3 +1,13 @@
+import { MERCURY_TRAJECTORY } from "./trajectories/mercuryTrajectory.js"
+import { VENUS_TRAJECTORY } from "./trajectories/venusTrajectory.js"
+import { EARTH_TRAJECTORY } from "./trajectories/earthTrajectory.js"
+import { MARS_TRAJECTORY } from "./trajectories/marsTrajectory.js"
+import { JUPITER_TRAJECTORY } from "./trajectories/jupiterTrajectory.js"
+import { SATURN_TRAJECTORY } from "./trajectories/saturnTrajectory.js"
+import { URANUS_TRAJECTORY } from "./trajectories/uranusTrajectory.js"
+import { NEPTUNE_TRAJECTORY } from "./trajectories/neptuneTrajectory.js"
+import { PLUTO_TRAJECTORY } from "./trajectories/plutoTrajectory.js"
+
 export const DIRECTIONS = { FORWARD: 1, BACKWARD: -1 }
 
 export const TEXTURES = {
@@ -13,6 +23,19 @@ export const TEXTURES = {
   'PLUTO': './assets/plutomap2k.jpg',
   'HALLEY': './assets/2k_mercury.jpg',
 }
+
+export const TRAJECTORIES = {
+  'EARTH': EARTH_TRAJECTORY,
+  'JUPITER': JUPITER_TRAJECTORY,
+  'MARS': MARS_TRAJECTORY,
+  'MERCURY': MERCURY_TRAJECTORY,
+  'NEPTUNE': NEPTUNE_TRAJECTORY,
+  'PLUTO': PLUTO_TRAJECTORY,
+  'SATURN': SATURN_TRAJECTORY,
+  'URANUS': URANUS_TRAJECTORY,
+  'VENUS': VENUS_TRAJECTORY
+}
+
 
 export const EARTH_DISTANCE_FROM_SUN = 149600000
 export const DISTANCE_SCALE_FACTOR = 500 / EARTH_DISTANCE_FROM_SUN;

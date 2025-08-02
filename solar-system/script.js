@@ -1,10 +1,10 @@
 "use strict"
 
-import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES } from "./constants.js"
-import { COMETS, COMET_DISPLAY_SCALE, COMET_SPEEDS, PLANETS, PLANET_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
+import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES, TRAJECTORIES } from "./constants.js"
+import { COMETS, COMET_DISPLAY_SCALE, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
 import { orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, texturedFragmentShader, texturedVertexShader } from "./shaders.js"
-import { HALLEY_TRAJECTORY } from "./trajectories/halleyTrajectory.js"
 import { degToRad } from "./utils.js"
+
 
 const height = document.documentElement.clientHeight
 
@@ -101,7 +101,7 @@ function main() {
   }, {})
 
   const skyboxTexture = twgl.createTexture(gl, { src: './assets/8k_stars_milky_way.jpg', crossOrigin: '' })
-  
+
   const planets = createPlanetsBuffer(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
   const comets = createCometsBuffer(gl, planetsProgram, cometTextures, COMET_DISPLAY_SCALE)
   const skybox = createSkybox(gl, skyboxProgram, skyboxTexture)
@@ -124,18 +124,20 @@ function main() {
   const orbits = {
     program: orbitProgram,
     ...Object.keys(PLANETS).reduce((acc, planetKey) => {
-      const planet = PLANETS[planetKey]
       if (planetKey !== 'SUN') {
-        acc[planetKey] = createOrbitBuffer(gl, orbitProgram, planet)
+        acc[planetKey] = createOrbitBuffer(gl, orbitProgram, TRAJECTORIES[planetKey])
       }
+      
       return acc
     }, {}),
-    ...Object.keys(COMETS).reduce((acc, cometKey) => {
-      if (cometKey === 'HALLEY') {
-        acc[cometKey] = createCometOrbitBuffer(gl, orbitProgram, HALLEY_TRAJECTORY)
-      }
-      return acc
-    }, {})
+    // ...Object.keys(COMETS).reduce((acc, cometKey) => {
+    //   if (cometKey === 'HALLEY') {
+    //     acc[cometKey] = createOrbitBuffer(gl, orbitProgram, HALLEY_TRAJECTORY)
+    //   } else if (cometKey === 'VOYAGER') {
+    //     acc[cometKey] = createOrbitBuffer(gl, orbitProgram, VOYAGER_TRAJECTORY)
+    //   }
+    //   return acc
+    // }, {})
   }
 
 
@@ -217,12 +219,15 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
 
   Object.keys(orbits).forEach(objectKey => {
     if (objectKey !== 'program') {
-      if (objectKey === 'HALLEY') {
-        const halleyUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [1.0, 0.8, 0.2], u_alpha: 0.8 }
-        twgl.setUniforms(orbits.program, halleyUniforms)
-      } else {
-        twgl.setUniforms(orbits.program, orbitUniforms)
-      }
+      // if (objectKey === 'HALLEY') {
+      //   const halleyUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [1.0, 0.8, 0.2], u_alpha: 0.8 }
+      //   twgl.setUniforms(orbits.program, halleyUniforms)
+      // } else if (objectKey === 'VOYAGER') {
+      //   const voyagerUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [0.2, 0.8, 1.0], u_alpha: 0.8 }
+      //   twgl.setUniforms(orbits.program, voyagerUniforms)
+      // } else {
+      twgl.setUniforms(orbits.program, orbitUniforms)
+      // }
       gl.bindVertexArray(orbits[objectKey].vao)
       gl.drawArrays(gl.LINE_STRIP, 0, orbits[objectKey].numElements)
     }
@@ -233,29 +238,34 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
   Object.keys(planets).forEach(planetKey => {
     const planet = PLANETS[planetKey]
     const planetRenderable = planets[planetKey]
-    const speedInfo = PLANET_SPEEDS.get(planet)
+    const planetRotationSpeed = PLANETS_ROTATION_SPEED.get(planet)
 
     if (PLANETS[planetKey] === PLANETS.SUN) {
-      const sunRotation = time * speedInfo.rotation
+      const sunRotation = time * planetRotationSpeed
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, [0, 0, 0], 0, sunRotation)
     } else {
-      const planetPosition = getPlanetPosition(planet, time * 20)
-      const planetRotation = time * speedInfo.rotation
+      const orbitalSpeed = PLANET_ORBITAL_SPEEDS.get(planet)
+      const planetPosition = getBodyPosition(time * 0.2 * orbitalSpeed, TRAJECTORIES[planetKey])
+      const planetRotation = time * planetRotationSpeed
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, planetPosition, 0, planetRotation)
     }
   })
 
-  Object.keys(comets).forEach(cometKey => {
-    const comet = COMETS[cometKey]
-    const cometRenderable = comets[cometKey]
-    const speedInfo = COMET_SPEEDS.get(comet)
+  // Object.keys(comets).forEach(cometKey => {
+  //   const comet = COMETS[cometKey]
+  //   const cometRenderable = comets[cometKey]
+  //   const speedInfo = COMET_SPEEDS.get(comet)
 
-    if (cometKey === 'HALLEY') {
-      const cometPosition = getCometPosition(time * 0.1)
-      const cometRotation = time * speedInfo.rotation
-      cometRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, cometPosition, 0, cometRotation)
-    }
-  })
+  //   if (cometKey === 'HALLEY') {
+  //     const cometPosition = getBodyPosition(time * 0.1, HALLEY_TRAJECTORY)
+  //     const cometRotation = time * speedInfo.rotation
+  //     cometRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, cometPosition, 0, cometRotation)
+  //   } else if (cometKey === 'VOYAGER') {
+  //     const cometPosition = getBodyPosition(time * 0.05, VOYAGER_TRAJECTORY)
+  //     const cometRotation = time * speedInfo.rotation
+  //     cometRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, cometPosition, 0, cometRotation)
+  //   }
+  // })
 
   objectsToDraw.forEach(function(object) {
     const programInfo = object.programInfo
@@ -266,51 +276,6 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     twgl.drawBufferInfo(gl, object.bufferInfo)
   })
 }
-
-function getPlanetPosition(planet, time) {
-  const { orbitDistanceFromSun, orbitalPeriod } = planet
-  
-  const radius = orbitDistanceFromSun * DISTANCE_SCALE_FACTOR
-  const angle = (time * 2 * Math.PI) / orbitalPeriod
-  
-  const x = radius * Math.cos(angle)
-  const y = 0
-  const z = radius * Math.sin(angle)
-  
-  return [x, y, z]
-}
-
-function createOrbitBuffer(gl, orbitProgram, planet) {
-  const { orbitDistanceFromSun } = planet
-  const radius = orbitDistanceFromSun * DISTANCE_SCALE_FACTOR
-  
-  const positions = createCircularOrbit(radius, 256)
-
-  const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
-    position: { numComponents: 3, data: positions }
-  })
-
-  const vao = twgl.createVAOFromBufferInfo(gl, orbitProgram, bufferInfo)
-
-  return { bufferInfo, vao, numElements: positions.length / 3 }
-}
-
-function createCircularOrbit(radius, segments = 128) {
-  const positions = []
-  
-  for (let i = 0; i <= segments; i++) {
-    const angle = (i / segments) * Math.PI * 2
-    
-    const x = radius * Math.cos(angle)
-    const y = 0
-    const z = radius * Math.sin(angle)
-    
-    positions.push(x, y, z)
-  }
-  
-  return new Float32Array(positions)
-}
-
 
 function createPlanetsBuffer(gl, program, textures, scale) {
   const planets = {}
@@ -360,15 +325,17 @@ function createSkybox(gl, program, texture) {
   }
 }
 
-function createCometOrbitBuffer(gl, orbitProgram, trajectoryData) {
+function createOrbitBuffer(gl, orbitProgram, trajectoryData) {
   const positions = []
-  
+
+  console.log(trajectoryData.length)
+
   for (let i = 0; i < trajectoryData.length; i++) {
     const point = trajectoryData[i]
     const x = point.x * DISTANCE_SCALE_FACTOR
-    const y = point.z * DISTANCE_SCALE_FACTOR  
+    const y = point.z * DISTANCE_SCALE_FACTOR
     const z = point.y * DISTANCE_SCALE_FACTOR
-    
+
     positions.push(x, y, z)
   }
 
@@ -381,25 +348,22 @@ function createCometOrbitBuffer(gl, orbitProgram, trajectoryData) {
   return { bufferInfo, vao, numElements: positions.length / 3 }
 }
 
-function getCometPosition(normalizedTime) {
-  const trajectoryLength = HALLEY_TRAJECTORY.length
-  const index = Math.floor((normalizedTime % 1) * trajectoryLength)
-  const nextIndex = (index + 1) % trajectoryLength
-  
-  const currentPoint = HALLEY_TRAJECTORY[index]
-  const nextPoint = HALLEY_TRAJECTORY[nextIndex]
-  
-  const t = (normalizedTime * trajectoryLength) % 1
-  
+function getBodyPosition(time, trajectory) {
+  const trajectoryLength = trajectory.length
+
+  const currentIndex = Math.floor((time % 1) * trajectoryLength)
+  const nextIndex = (currentIndex + 1) % trajectoryLength
+
+  const currentPoint = trajectory[currentIndex]
+  const nextPoint = trajectory[nextIndex]
+
+  const t = (time * trajectoryLength) % 1
+
   const x = currentPoint.x + (nextPoint.x - currentPoint.x) * t
-  const y = currentPoint.z + (nextPoint.z - currentPoint.z) * t  
+  const y = currentPoint.z + (nextPoint.z - currentPoint.z) * t
   const z = currentPoint.y + (nextPoint.y - currentPoint.y) * t
-  
-  return [
-    x * DISTANCE_SCALE_FACTOR,
-    y * DISTANCE_SCALE_FACTOR,
-    z * DISTANCE_SCALE_FACTOR
-  ]
+
+  return [ x * DISTANCE_SCALE_FACTOR, y * DISTANCE_SCALE_FACTOR, z * DISTANCE_SCALE_FACTOR ]
 }
 
 function createCometsBuffer(gl, program, textures, scale) {
