@@ -11,7 +11,8 @@ export const TEXTURES = {
   'NEPTUNE': './assets/2k_neptune.jpg',
   'SUN': './assets/8k_sun.jpg',
   'PLUTO': './assets/plutomap2k.jpg',
+  'HALLEY': './assets/2k_mercury.jpg',
 }
 
 export const EARTH_DISTANCE_FROM_SUN = 149600000
-export const DISTANCE_SCALE_FACTOR = 2000 / EARTH_DISTANCE_FROM_SUN;
+export const DISTANCE_SCALE_FACTOR = 500 / EARTH_DISTANCE_FROM_SUN;

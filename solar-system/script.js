@@ -1,15 +1,16 @@
 "use strict"
 
 import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES } from "./constants.js"
-import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
+import { COMETS, COMET_DISPLAY_SCALE, COMET_SPEEDS, PLANETS, PLANET_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
 import { orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, texturedFragmentShader, texturedVertexShader } from "./shaders.js"
+import { HALLEY_TRAJECTORY } from "./trajectories/halleyTrajectory.js"
 import { degToRad } from "./utils.js"
 
 const height = document.documentElement.clientHeight
+
 function main() {
   const canvas = document.querySelector("#canvas")
   const gl = canvas.getContext("webgl2")
-
 
   const playPauseButton = document.querySelector(".play-pause-button")
   const reverseButton = document.querySelector(".reverse-button")
@@ -91,27 +92,48 @@ function main() {
     return acc
   }, {})
 
+  const cometTextures = Object.keys(COMETS).reduce((acc, cometKey) => {
+    acc[cometKey] = twgl.createTexture(gl, {
+      src: TEXTURES[cometKey],
+      crossOrigin: ''
+    })
+    return acc
+  }, {})
+
   const skyboxTexture = twgl.createTexture(gl, { src: './assets/8k_stars_milky_way.jpg', crossOrigin: '' })
   
   const planets = createPlanetsBuffer(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
+  const comets = createCometsBuffer(gl, planetsProgram, cometTextures, COMET_DISPLAY_SCALE)
   const skybox = createSkybox(gl, skyboxProgram, skyboxTexture)
 
-  const objectsToDraw = Object.keys(planets).map(planetKey => ({
-    programInfo: planetsProgram,
-    bufferInfo: planets[planetKey].buffer,
-    vertexArray: planets[planetKey].vao,
-    uniforms: planets[planetKey].uniforms,
-  }))
+  const objectsToDraw = [
+    ...Object.keys(planets).map(planetKey => ({
+      programInfo: planetsProgram,
+      bufferInfo: planets[planetKey].buffer,
+      vertexArray: planets[planetKey].vao,
+      uniforms: planets[planetKey].uniforms,
+    })),
+    ...Object.keys(comets).map(cometKey => ({
+      programInfo: planetsProgram,
+      bufferInfo: comets[cometKey].buffer,
+      vertexArray: comets[cometKey].vao,
+      uniforms: comets[cometKey].uniforms,
+    }))
+  ]
 
   const orbits = {
     program: orbitProgram,
     ...Object.keys(PLANETS).reduce((acc, planetKey) => {
       const planet = PLANETS[planetKey]
-
       if (planetKey !== 'SUN') {
         acc[planetKey] = createOrbitBuffer(gl, orbitProgram, planet)
       }
-
+      return acc
+    }, {}),
+    ...Object.keys(COMETS).reduce((acc, cometKey) => {
+      if (cometKey === 'HALLEY') {
+        acc[cometKey] = createCometOrbitBuffer(gl, orbitProgram, HALLEY_TRAJECTORY)
+      }
       return acc
     }, {})
   }
@@ -126,7 +148,7 @@ function main() {
 
     const camera = { angleX: cameraAngleX, angleY: cameraAngleY, distance: cameraDistance }
 
-    drawScene({ time, gl, fieldOfViewRadians: degToRad(60), objectsToDraw, planets, orbits, skybox, camera })
+    drawScene({ time, gl, fieldOfViewRadians: degToRad(60), objectsToDraw, planets, comets, orbits, skybox, camera })
 
     requestAnimationFrame(updateScene)
   }
@@ -134,7 +156,7 @@ function main() {
   requestAnimationFrame(updateScene)
 }
 
-function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits, skybox, camera }) {
+function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comets, orbits, skybox, camera }) {
   twgl.resizeCanvasToDisplaySize(gl.canvas)
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
@@ -187,18 +209,22 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
 
   // orbita primeiro pra ficar atras dos planeta
   gl.useProgram(orbits.program.program)
-
-  const orbitUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [0.4, 0.6, 1.0],  u_alpha: 0.6 }
-
+  const orbitUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [0.4, 0.6, 1.0], u_alpha: 0.6 }
   twgl.setUniforms(orbits.program, orbitUniforms)
 
   gl.enable(gl.BLEND)
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-  Object.keys(orbits).forEach(planetKey => {
-    if (planetKey !== 'program') {
-      gl.bindVertexArray(orbits[planetKey].vao)
-      gl.drawArrays(gl.LINE_STRIP, 0, orbits[planetKey].numElements)
+  Object.keys(orbits).forEach(objectKey => {
+    if (objectKey !== 'program') {
+      if (objectKey === 'HALLEY') {
+        const halleyUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [1.0, 0.8, 0.2], u_alpha: 0.8 }
+        twgl.setUniforms(orbits.program, halleyUniforms)
+      } else {
+        twgl.setUniforms(orbits.program, orbitUniforms)
+      }
+      gl.bindVertexArray(orbits[objectKey].vao)
+      gl.drawArrays(gl.LINE_STRIP, 0, orbits[objectKey].numElements)
     }
   })
 
@@ -215,8 +241,19 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
     } else {
       const planetPosition = getPlanetPosition(planet, time * 20)
       const planetRotation = time * speedInfo.rotation
-
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, planetPosition, 0, planetRotation)
+    }
+  })
+
+  Object.keys(comets).forEach(cometKey => {
+    const comet = COMETS[cometKey]
+    const cometRenderable = comets[cometKey]
+    const speedInfo = COMET_SPEEDS.get(comet)
+
+    if (cometKey === 'HALLEY') {
+      const cometPosition = getCometPosition(time * 0.1)
+      const cometRotation = time * speedInfo.rotation
+      cometRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, cometPosition, 0, cometRotation)
     }
   })
 
@@ -321,6 +358,75 @@ function createSkybox(gl, program, texture) {
     vao,
     texture
   }
+}
+
+function createCometOrbitBuffer(gl, orbitProgram, trajectoryData) {
+  const positions = []
+  
+  for (let i = 0; i < trajectoryData.length; i++) {
+    const point = trajectoryData[i]
+    const x = point.x * DISTANCE_SCALE_FACTOR
+    const y = point.z * DISTANCE_SCALE_FACTOR  
+    const z = point.y * DISTANCE_SCALE_FACTOR
+    
+    positions.push(x, y, z)
+  }
+
+  const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
+    position: { numComponents: 3, data: new Float32Array(positions) }
+  })
+
+  const vao = twgl.createVAOFromBufferInfo(gl, orbitProgram, bufferInfo)
+
+  return { bufferInfo, vao, numElements: positions.length / 3 }
+}
+
+function getCometPosition(normalizedTime) {
+  const trajectoryLength = HALLEY_TRAJECTORY.length
+  const index = Math.floor((normalizedTime % 1) * trajectoryLength)
+  const nextIndex = (index + 1) % trajectoryLength
+  
+  const currentPoint = HALLEY_TRAJECTORY[index]
+  const nextPoint = HALLEY_TRAJECTORY[nextIndex]
+  
+  const t = (normalizedTime * trajectoryLength) % 1
+  
+  const x = currentPoint.x + (nextPoint.x - currentPoint.x) * t
+  const y = currentPoint.z + (nextPoint.z - currentPoint.z) * t  
+  const z = currentPoint.y + (nextPoint.y - currentPoint.y) * t
+  
+  return [
+    x * DISTANCE_SCALE_FACTOR,
+    y * DISTANCE_SCALE_FACTOR,
+    z * DISTANCE_SCALE_FACTOR
+  ]
+}
+
+function createCometsBuffer(gl, program, textures, scale) {
+  const comets = {}
+
+  Object.keys(COMETS).forEach(cometKey => {
+    const comet = COMETS[cometKey]
+    const radius = scale.get(comet)
+
+    if (radius) {
+      const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, 16, 8)
+
+      const uniforms = {
+        u_colorMult: [1, 1, 1, 1],
+        u_matrix: m4.identity(),
+        u_texture: textures[cometKey],
+      }
+
+      comets[cometKey] = {
+        buffer,
+        uniforms,
+        vao: twgl.createVAOFromBufferInfo(gl, program, buffer)
+      }
+    }
+  })
+
+  return comets
 }
 
 main()
