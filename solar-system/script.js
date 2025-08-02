@@ -1,53 +1,15 @@
 "use strict"
 
+import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES } from "./constants.js"
 import { PLANETS, PLANET_DISPLAY_SCALE, PLANET_SPEEDS } from "./planets.js"
 import { orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, texturedFragmentShader, texturedVertexShader } from "./shaders.js"
-import { EARTH_TRAJECTORY } from "./trajectories/earthTrajectory.js"
-import { JUPITER_TRAJECTORY } from "./trajectories/jupiterTrajectory.js"
-import { MARS_TRAJECTORY } from "./trajectories/marsTrajectory.js"
-import { MERCURY_TRAJECTORY } from "./trajectories/mercuryTrajectory.js"
-import { NEPTUNE_TRAJECTORY } from "./trajectories/neptuneTrajectory.js"
-import { PLUTO_TRAJECTORY } from "./trajectories/plutoTrajectory.js"
-import { SATURN_TRAJECTORY } from "./trajectories/saturnTrajectory.js"
-import { URANUS_TRAJECTORY } from "./trajectories/uranusTrajectory.js"
-import { VENUS_TRAJECTORY } from "./trajectories/venusTrajectory.js"
-import { convertHGIToCartesian, degToRad } from "./utils/index.js"
+import { degToRad } from "./utils.js"
 
-const DIRECTIONS = { FORWARD: 1, BACKWARD: -1 }
-
-const PLANET_TRAJECTORIES = {
-  'EARTH': EARTH_TRAJECTORY,
-  'JUPITER': JUPITER_TRAJECTORY,
-  'MARS': MARS_TRAJECTORY,
-  'MERCURY': MERCURY_TRAJECTORY,
-  'NEPTUNE': NEPTUNE_TRAJECTORY,
-  'PLUTO': PLUTO_TRAJECTORY,
-  'SATURN': SATURN_TRAJECTORY,
-  'URANUS': URANUS_TRAJECTORY,
-  'VENUS': VENUS_TRAJECTORY
-}
-
-const TEXTURES = {
-  'MERCURY': './assets/2k_mercury.jpg',
-  'VENUS': './assets/2k_venus_surface.jpg',
-  'EARTH': './assets/2k_earth_daymap.jpg',
-  'MARS': './assets/2k_mars.jpg',
-  'JUPITER': './assets/2k_jupiter.jpg',
-  'SATURN': './assets/2k_saturn.jpg',
-  'URANUS': './assets/2k_uranus.jpg',
-  'NEPTUNE': './assets/2k_neptune.jpg',
-  'SUN': './assets/8k_sun.jpg',
-  'PLUTO': './assets/plutomap2k.jpg',
-}
-
-const OUTER_PLANETS = ['MARS', 'JUPITER', 'SATURN', 'URANUS', 'NEPTUNE', 'PLUTO']
-
-const AU_TO_DISPLAY_UNITS = 50;
-
-
+const height = document.documentElement.clientHeight
 function main() {
   const canvas = document.querySelector("#canvas")
   const gl = canvas.getContext("webgl2")
+
 
   const playPauseButton = document.querySelector(".play-pause-button")
   const reverseButton = document.querySelector(".reverse-button")
@@ -64,7 +26,7 @@ function main() {
 
   let cameraAngleX = 0
   let cameraAngleY = Math.PI / 3
-  let cameraDistance = 250
+  let cameraDistance = 1500
   let isDragging = false
   let previousMouseX = 0
   let previousMouseY = 0
@@ -94,7 +56,7 @@ function main() {
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault()
     cameraDistance += e.deltaY
-    cameraDistance = Math.max(25, Math.min(1000, cameraDistance))
+    cameraDistance = Math.max(25, Math.min(25000, cameraDistance))
   })
 
   playPauseButton.addEventListener("click", () => {
@@ -129,12 +91,10 @@ function main() {
     return acc
   }, {})
 
-  const skyboxTexture = twgl.createTexture(gl, {
-    src: './assets/8k_stars_milky_way.jpg',
-    crossOrigin: ''
-  })
-
-  const planets = createPlanetsRenderData(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
+  const skyboxTexture = twgl.createTexture(gl, { src: './assets/8k_stars_milky_way.jpg', crossOrigin: '' })
+  
+  const planets = createPlanetsBuffer(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
+  const skybox = createSkybox(gl, skyboxProgram, skyboxTexture)
 
   const objectsToDraw = Object.keys(planets).map(planetKey => ({
     programInfo: planetsProgram,
@@ -149,122 +109,29 @@ function main() {
       const planet = PLANETS[planetKey]
 
       if (planetKey !== 'SUN') {
-        acc[planetKey] = OUTER_PLANETS.includes(planetKey) ? createCalculatedOrbitBuffer(gl, orbitProgram, planet) : createTrajectoryOrbitBuffer(gl, orbitProgram, planetKey)
+        acc[planetKey] = createOrbitBuffer(gl, orbitProgram, planet)
       }
 
       return acc
     }, {})
   }
 
-  const skybox = createSkybox(gl, skyboxProgram, skyboxTexture)
-
-  const fieldOfViewRadians = degToRad(60)
 
   const updateScene = (now) => {
     if (isPaused) return
 
     const deltaTime = now - previousTime
-
     previousTime = now
-    time += deltaTime * speed * direction * 0.001
+    time += deltaTime * speed * direction * 0.0001
 
-    const camera = {
-      angleX: cameraAngleX,
-      angleY: cameraAngleY,
-      distance: cameraDistance
-    }
+    const camera = { angleX: cameraAngleX, angleY: cameraAngleY, distance: cameraDistance }
 
-    drawScene({
-      time,
-      gl,
-      fieldOfViewRadians,
-      objectsToDraw,
-      planets,
-      orbits,
-      skybox,
-      camera,
-    })
+    drawScene({ time, gl, fieldOfViewRadians: degToRad(60), objectsToDraw, planets, orbits, skybox, camera })
 
     requestAnimationFrame(updateScene)
   }
 
   requestAnimationFrame(updateScene)
-}
-
-function getPlanetPositionFromTrajectory(planetKey, time) {
-  const trajectory = PLANET_TRAJECTORIES[planetKey]
-
-  // pegar o index pra achar a posição atual, se passar um ano n pode sair do arrayyy precisa normalizar
-  /** @see {https://dev.to/avocoaster/how-to-wrap-around-a-range-of-numbers-with-the-modulo-cdo} */
-  const currentIndex = Math.floor(time) % trajectory.length
-  const nextIndex = (currentIndex + 1) % trajectory.length
-
-  const currentPoint = trajectory[currentIndex]
-  const nextPoint = trajectory[nextIndex]
-
-  const currentPos = convertHGIToCartesian(currentPoint.RAD_AU, currentPoint.HGI_LAT, currentPoint.HGI_LON, AU_TO_DISPLAY_UNITS)
-  const nextPos = convertHGIToCartesian(nextPoint.RAD_AU, nextPoint.HGI_LAT, nextPoint.HGI_LON, AU_TO_DISPLAY_UNITS)
-
-
-  // TODO: Quando troca de posição tá dando umas travadinhas acho que é algo de interpolação? tem q ser mais suave?
-  return [
-    currentPos[0] + (nextPos[0] - currentPos[0]),
-    currentPos[1] + (nextPos[1] - currentPos[1]),
-    currentPos[2] + (nextPos[2] - currentPos[2])
-  ]
-}
-
-function getPlanetPositionFromOrbitalElements(planet, time) {
-  const { semiMajorAxis, eccentricity, inclination } = planet.orbitalElements
-  const { orbitalPeriod } = planet
-  
-  const a = semiMajorAxis * AU_TO_DISPLAY_UNITS
-  const b = a * Math.sqrt(1 - eccentricity * eccentricity)
-  const incRad = degToRad(inclination)
-  
-  const angle = (time * 2 * Math.PI) / orbitalPeriod
-  
-  const xOrb = a * Math.cos(angle)
-  const yOrb = 0
-  const zOrb = b * Math.sin(angle)
-  
-  const cosInc = Math.cos(incRad)
-  const sinInc = Math.sin(incRad)
-  
-  const x = xOrb
-  const y = yOrb * cosInc - zOrb * sinInc
-  const z = yOrb * sinInc + zOrb * cosInc
-  
-  return [x, y, z]
-}
-
-function createPlanetOrbit(planetKey) {
-  const positions = []
-
-  const planetTrajectory = PLANET_TRAJECTORIES[planetKey]
-
-  for (let i = 0; i < planetTrajectory.length; ++i) {
-    const point = planetTrajectory[i]
-    const [x, y, z] = convertHGIToCartesian(point.RAD_AU, point.HGI_LAT, point.HGI_LON, AU_TO_DISPLAY_UNITS)
-    positions.push(x, y, z)
-  }
-
-  /*  Problemasso: Obviamente pra terra funciona porque ela dá uma volta perfeita em volta do sol
-      então cria uma órbita fechadinha e bonita. Mas os outros dão sla X voltas em um ano de dados
-      aí a tem vezes q n fecha os 360 graus da órbita bonita e fica com descontinuidades
-      então tem q fechar
-  */
-  // const firstPoint = planetTrajectory[0]
-  // const lastPoint = planetTrajectory[planetTrajectory.length - 1]
-
-  // const angleDiff = Math.abs(firstPoint.HGI_LON - lastPoint.HGI_LON)
-  // const normalizedAngleDiff = Math.min(angleDiff, 360 - angleDiff)
-
-  // if (normalizedAngleDiff < 30) {
-  //   positions.push(positions[0], positions[1], positions[2])
-  // }
-
-  return new Float32Array(positions)
 }
 
 function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbits, skybox, camera }) {
@@ -279,7 +146,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
   const aspectRatio = gl.canvas.clientWidth / gl.canvas.clientHeight
-  const projectionMatrix = m4.perspective(fieldOfViewRadians, aspectRatio, 1, 2000)
+  const projectionMatrix = m4.perspective(fieldOfViewRadians, aspectRatio, 10, 50000)
 
   const cameraPosition = [
     camera.distance * Math.sin(camera.angleY) * Math.cos(camera.angleX),
@@ -321,11 +188,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
   // orbita primeiro pra ficar atras dos planeta
   gl.useProgram(orbits.program.program)
 
-  const orbitUniforms = {
-    u_viewProjectionMatrix: viewProjectionMatrix,
-    u_orbitColor: [0.4, 0.6, 1.0], // TODO: botar um negocio legal aqui
-    u_alpha: 0.6
-  }
+  const orbitUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [0.4, 0.6, 1.0],  u_alpha: 0.6 }
 
   twgl.setUniforms(orbits.program, orbitUniforms)
 
@@ -350,7 +213,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
       const sunRotation = time * speedInfo.rotation
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, [0, 0, 0], 0, sunRotation)
     } else {
-      const planetPosition = OUTER_PLANETS.includes(planetKey) ? getPlanetPositionFromOrbitalElements(planet, time * 100) : getPlanetPositionFromTrajectory(planetKey, time * 100)
+      const planetPosition = getPlanetPosition(planet, time * 20)
       const planetRotation = time * speedInfo.rotation
 
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, planetPosition, 0, planetRotation)
@@ -367,30 +230,24 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, orbit
   })
 }
 
-function createTrajectoryOrbitBuffer(gl, orbitPogram, planetKey) {
-  const positions = createPlanetOrbit(planetKey)
-
-  console.log({ positions })
-
-  const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
-    position: { numComponents: 3, data: positions }
-  })
-
-  const vao = twgl.createVAOFromBufferInfo(gl, orbitPogram, bufferInfo)
-
-  return { bufferInfo, vao, numElements: positions.length / 3 }
+function getPlanetPosition(planet, time) {
+  const { orbitDistanceFromSun, orbitalPeriod } = planet
+  
+  const radius = orbitDistanceFromSun * DISTANCE_SCALE_FACTOR
+  const angle = (time * 2 * Math.PI) / orbitalPeriod
+  
+  const x = radius * Math.cos(angle)
+  const y = 0
+  const z = radius * Math.sin(angle)
+  
+  return [x, y, z]
 }
 
-function createCalculatedOrbitBuffer(gl, orbitProgram, planet) {
-  const { semiMajorAxis, eccentricity, inclination } = planet.orbitalElements
+function createOrbitBuffer(gl, orbitProgram, planet) {
+  const { orbitDistanceFromSun } = planet
+  const radius = orbitDistanceFromSun * DISTANCE_SCALE_FACTOR
   
-  const positions = createOrbitGeomtry(
-    semiMajorAxis, 
-    eccentricity, 
-    inclination, 
-    256, 
-    AU_TO_DISPLAY_UNITS
-  )
+  const positions = createCircularOrbit(radius, 256)
 
   const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
     position: { numComponents: 3, data: positions }
@@ -401,26 +258,15 @@ function createCalculatedOrbitBuffer(gl, orbitProgram, planet) {
   return { bufferInfo, vao, numElements: positions.length / 3 }
 }
 
- function createOrbitGeomtry(semiMajorAxis, eccentricity, inclination, segments = 128, auToUnits = 50) {
+function createCircularOrbit(radius, segments = 128) {
   const positions = []
-  
-  const a = semiMajorAxis * auToUnits
-  const b = a * Math.sqrt(1 - eccentricity * eccentricity)
-  const incRad = degToRad(inclination)
-  
-  const cosInc = Math.cos(incRad)
-  const sinInc = Math.sin(incRad)
   
   for (let i = 0; i <= segments; i++) {
     const angle = (i / segments) * Math.PI * 2
     
-    const xOrb = a * Math.cos(angle)
-    const yOrb = 0
-    const zOrb = b * Math.sin(angle)
-    
-    const x = xOrb
-    const y = yOrb * cosInc - zOrb * sinInc
-    const z = yOrb * sinInc + zOrb * cosInc
+    const x = radius * Math.cos(angle)
+    const y = 0
+    const z = radius * Math.sin(angle)
     
     positions.push(x, y, z)
   }
@@ -429,7 +275,7 @@ function createCalculatedOrbitBuffer(gl, orbitProgram, planet) {
 }
 
 
-function createPlanetsRenderData(gl, program, textures, scale) {
+function createPlanetsBuffer(gl, program, textures, scale) {
   const planets = {}
 
   Object.keys(PLANETS).forEach(planetKey => {
@@ -466,7 +312,7 @@ function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) 
 }
 
 function createSkybox(gl, program, texture) {
-  const sphereBufferInfo = flattenedPrimitives.createSphereBufferInfo(gl, 2000, 32, 16)
+  const sphereBufferInfo = flattenedPrimitives.createSphereBufferInfo(gl, 40000, 32, 16)
   const vao = twgl.createVAOFromBufferInfo(gl, program, sphereBufferInfo)
 
   return {
