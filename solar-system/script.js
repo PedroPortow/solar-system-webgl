@@ -5,6 +5,7 @@ import { COMETS, COMET_DISPLAY_SCALE, COMET_ORBITAL_SPEEDS, COMET_SPEEDS, PLANET
 import { bodyFragmentShader, bodyVertexShader, cometFragmentShader, cometTrailFragmentShader, cometTrailVertexShader, cometVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
 import { degToRad, formatDate, smoothTrajectory, loadTextures, loadSingleTextureAsync } from "./utils.js"
 
+const IDENTITY_MATRIX = m4.identity()
 
 const height = document.documentElement.clientHeight
 
@@ -394,9 +395,9 @@ function createPlanetsBuffer(gl, program, textures, scale) {
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, detail[0], detail[1])
 
       const uniforms = {
-        u_worldMatrix: m4.identity(),
-        u_viewProjectionMatrix: m4.identity(),
-        u_normalMatrix: m4.identity(),
+        u_worldMatrix: IDENTITY_MATRIX,
+        u_viewProjectionMatrix: IDENTITY_MATRIX,
+        u_normalMatrix: IDENTITY_MATRIX,
         u_texture: textures[planetKey],
         u_lightPosition: [0, 0, 0],
         u_lightColor: [1, 1, 1],
@@ -485,8 +486,8 @@ function createCometsBuffer(gl, program, scale) {
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, 16, 8)
 
       const uniforms = {
-        u_worldMatrix: m4.identity(),
-        u_viewProjectionMatrix: m4.identity(),
+        u_worldMatrix: IDENTITY_MATRIX,
+        u_viewProjectionMatrix: IDENTITY_MATRIX,
         u_cometColor: [1, 1, 1]
       }
 
@@ -506,19 +507,19 @@ function createCometTrailsBuffer(gl, program, scale) {
 
   Object.keys(COMETS).forEach((cometKey, index) => {
     const comet = COMETS[cometKey]
-    const radius = scale.get(comet) * (index === 0 ? 0.8 : 0.5) // rastro um pouco menor que o cometa
+    const radius = scale.get(comet) * 0.5
 
     if (radius) {
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, 12, 6)
 
       const uniforms = {
-        u_worldMatrix: m4.identity(),
-        u_viewProjectionMatrix: m4.identity(),
-        u_normalMatrix: m4.identity(),
+        u_worldMatrix: IDENTITY_MATRIX,
+        u_viewProjectionMatrix: IDENTITY_MATRIX,
+        u_normalMatrix: IDENTITY_MATRIX,
         u_lightPosition: [0, 0, 0],
         u_lightColor: [1, 1, 1],
         u_trailColor: [1.0, 0.8, 0.2, 1.0],
-        u_alpha: 0.5
+        u_alpha: 0.3
       }
 
       cometTrails[cometKey] = {
@@ -537,9 +538,9 @@ function createSunBuffer(gl, program, texture, radius) {
   const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, 24, 12)
 
   const uniforms = {
-    u_worldMatrix: m4.identity(),
-    u_viewProjectionMatrix: m4.identity(),
-    u_normalMatrix: m4.identity(),
+    u_worldMatrix: IDENTITY_MATRIX,
+    u_viewProjectionMatrix: IDENTITY_MATRIX,
+    u_normalMatrix: IDENTITY_MATRIX,
     u_texture: texture,
     u_time: 0,
   }
