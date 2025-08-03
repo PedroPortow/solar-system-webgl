@@ -2,7 +2,7 @@
 
 import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES, TRAJECTORIES } from "./constants.js"
 import { COMETS, COMET_DISPLAY_SCALE, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
-import { bodyFragmentShader, bodyVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
+import { bodyFragmentShader, bodyVertexShader, cometFragmentShader, cometTrailFragmentShader, cometTrailVertexShader, cometVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
 import { degToRad } from "./utils.js"
 
 
@@ -15,6 +15,7 @@ function main() {
   const playPauseButton = document.querySelector(".play-pause-button")
   const reverseButton = document.querySelector(".reverse-button")
   const speedSlider = document.querySelector(".speed-slider")
+  const focusSelector = document.querySelector(".focus-selector")
 
   const playIcon = playPauseButton.querySelector(".fa-play")
   const pauseIcon = playPauseButton.querySelector(".fa-pause")
@@ -31,6 +32,7 @@ function main() {
   let isDragging = false
   let previousMouseX = 0
   let previousMouseY = 0
+  let focusTarget = 'SUN' 
 
   canvas.addEventListener("mousedown", (e) => {
     if (e.button === 0) {
@@ -77,12 +79,18 @@ function main() {
     speed = parseFloat(event.target.value)
   })
 
+  focusSelector.addEventListener("change", (event) => {
+    focusTarget = event.target.value
+  })
+
   twgl.setAttributePrefix("a_") // prefixo para os atributos
 
   const planetsProgram = twgl.createProgramInfo(gl, [bodyVertexShader, bodyFragmentShader])
   const sunProgram = twgl.createProgramInfo(gl, [sunVertexShader, sunFragmentShader])
   const orbitProgram = twgl.createProgramInfo(gl, [orbitVertexShader, orbitFragmentShader])
   const skyboxProgram = twgl.createProgramInfo(gl, [skyboxVertexShader, skyboxFragmentShader])
+  const cometProgram = twgl.createProgramInfo(gl, [cometVertexShader, cometFragmentShader])
+  const cometTrailProgram = twgl.createProgramInfo(gl, [cometTrailVertexShader, cometTrailFragmentShader])
 
   const planetTextures = Object.keys(PLANETS).reduce((acc, planetKey) => {
     acc[planetKey] = twgl.createTexture(gl, {
@@ -93,20 +101,18 @@ function main() {
     return acc
   }, {})
 
-  const cometTextures = Object.keys(COMETS).reduce((acc, cometKey) => {
-    acc[cometKey] = twgl.createTexture(gl, {
-      src: TEXTURES[cometKey],
-      crossOrigin: ''
-    })
-    return acc
-  }, {})
 
   const skyboxTexture = twgl.createTexture(gl, { src: './assets/8k_stars_milky_way.jpg', crossOrigin: '' })
 
   const sun = createSunBuffer(gl, sunProgram, planetTextures['SUN'], PLANET_DISPLAY_SCALE.get(PLANETS.SUN))
   const planets = createPlanetsBuffer(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
-  const comets = createCometsBuffer(gl, planetsProgram, cometTextures, COMET_DISPLAY_SCALE)
+  const comets = createCometsBuffer(gl, cometProgram, COMET_DISPLAY_SCALE)
+  const cometTrails = createCometTrailsBuffer(gl, cometTrailProgram, COMET_DISPLAY_SCALE)
   const skybox = createSkyboxBuffer(gl, skyboxProgram, skyboxTexture)
+
+  const cometPositionHistory = new Map()
+  const TRAIL_LENGTH = 8 
+  let frameCount = 0
 
   const objectsToDraw = [
     {
@@ -122,7 +128,7 @@ function main() {
       uniforms: planets[planetKey].uniforms,
     })),
     ...Object.keys(comets).map(cometKey => ({
-      programInfo: planetsProgram,
+      programInfo: cometProgram,
       bufferInfo: comets[cometKey].buffer,
       vertexArray: comets[cometKey].vao,
       uniforms: comets[cometKey].uniforms,
@@ -152,9 +158,10 @@ function main() {
     previousTime = now
     time += deltaTime * speed * direction * 0.0001
 
-    const camera = { angleX: cameraAngleX, angleY: cameraAngleY, distance: cameraDistance }
+    const camera = { angleX: cameraAngleX, angleY: cameraAngleY, distance: cameraDistance, focusTarget }
 
-    drawScene({ time, gl, fieldOfViewRadians: degToRad(60), objectsToDraw, planets, comets, orbits, skybox, camera, sun })
+    drawScene({ time, gl, fieldOfViewRadians: degToRad(60), objectsToDraw, planets, comets, cometTrails, orbits, skybox, camera, sun, cometPositionHistory, TRAIL_LENGTH, frameCount })
+    frameCount++
 
     requestAnimationFrame(updateScene)
   }
@@ -162,7 +169,7 @@ function main() {
   requestAnimationFrame(updateScene)
 }
 
-function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comets, orbits, skybox, camera, sun }) {
+function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comets, cometTrails, orbits, skybox, camera, sun, cometPositionHistory, TRAIL_LENGTH, frameCount }) {
   twgl.resizeCanvasToDisplaySize(gl.canvas)
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
@@ -176,15 +183,16 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
   const aspectRatio = gl.canvas.clientWidth / gl.canvas.clientHeight
   const projectionMatrix = m4.perspective(fieldOfViewRadians, aspectRatio, 10, 50000)
 
+  const focusPosition = getFocusPosition(camera.focusTarget, time, planets, comets, sun)
+  
   const cameraPosition = [
-    camera.distance * Math.sin(camera.angleY) * Math.cos(camera.angleX),
-    camera.distance * Math.cos(camera.angleY),
-    camera.distance * Math.sin(camera.angleY) * Math.sin(camera.angleX)
+    focusPosition[0] + camera.distance * Math.sin(camera.angleY) * Math.cos(camera.angleX),
+    focusPosition[1] + camera.distance * Math.cos(camera.angleY),
+    focusPosition[2] + camera.distance * Math.sin(camera.angleY) * Math.sin(camera.angleX)
   ]
-
-  const lookVector = [0, 0, 0]
+  
   const upVector = [0, 1, 0]
-  const cameraMatrix = m4.lookAt(cameraPosition, lookVector, upVector)
+  const cameraMatrix = m4.lookAt(cameraPosition, focusPosition, upVector)
 
   const viewMatrix = m4.inverse(cameraMatrix)
   const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix)
@@ -285,16 +293,73 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     const cometPosition = getBodyPosition(time * 0.05, TRAJECTORIES[cometKey])
     const cometRotation = time * speedInfo.rotation
     
+    // Atualizar histórico de posições para o rastro (apenas a cada 5 frames)
+    if (frameCount % 5 === 0) {
+      if (!cometPositionHistory.has(cometKey)) {
+        cometPositionHistory.set(cometKey, [])
+      }
+      const history = cometPositionHistory.get(cometKey)
+      history.push([...cometPosition])
+      if (history.length > TRAIL_LENGTH) {
+        history.shift()
+      }
+    }
+    
     const worldMatrix = computeWorldMatrix(cometPosition, 0, cometRotation)
-    const normalMatrix = m4.transpose(m4.inverse(worldMatrix))
     
     cometRenderable.uniforms.u_worldMatrix = worldMatrix
     cometRenderable.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
-    cometRenderable.uniforms.u_normalMatrix = normalMatrix
-    cometRenderable.uniforms.u_lightPosition = lightPosition
-    cometRenderable.uniforms.u_lightColor = lightColor
-    cometRenderable.uniforms.u_isEmissive = false
+    
+    let cometColor
+
+    switch (cometKey) {
+      case 'HALLEY':
+        cometColor = [1.0, 0.3, 0.1] // laranja
+        break
+      case 'VOYAGER':
+        cometColor = [0.1, 0.8, 1.0] // azul 
+        break
+      case 'MACHHOLZ':
+        cometColor = [0.8, 0.1, 1.0] // rosa
+        break
+    }
+
+    cometRenderable.uniforms.u_cometColor = cometColor
   })
+
+  //  rastro dos cometas
+  gl.enable(gl.BLEND)
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
+  Object.keys(comets).forEach(cometKey => {
+    const history = cometPositionHistory.get(cometKey)
+    if (!history || history.length < 2) return
+
+    const cometTrailRenderable = cometTrails[cometKey]
+    
+    for (let i = 0; i < history.length - 1; i++) {
+      const alpha = (1.0 - (i / (history.length - 1))) * 0.8 
+      const trailPosition = history[i]
+      
+      const trailWorldMatrix = computeWorldMatrix(trailPosition, 0, 0)
+      const trailNormalMatrix = m4.transpose(m4.inverse(trailWorldMatrix))
+      
+      cometTrailRenderable.uniforms.u_worldMatrix = trailWorldMatrix
+      cometTrailRenderable.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
+      cometTrailRenderable.uniforms.u_normalMatrix = trailNormalMatrix
+      cometTrailRenderable.uniforms.u_lightPosition = lightPosition
+      cometTrailRenderable.uniforms.u_lightColor = lightColor
+      cometTrailRenderable.uniforms.u_trailColor = [1.0, 0.8, 0.2, 1.0] // cor dourada
+      cometTrailRenderable.uniforms.u_alpha = alpha
+
+      gl.useProgram(cometTrailRenderable.programInfo.program)
+      gl.bindVertexArray(cometTrailRenderable.vao)
+      twgl.setUniforms(cometTrailRenderable.programInfo, cometTrailRenderable.uniforms)
+      twgl.drawBufferInfo(gl, cometTrailRenderable.buffer)
+    }
+  })
+
+  gl.disable(gl.BLEND)
 
   objectsToDraw.forEach(function(object) {
     const programInfo = object.programInfo
@@ -408,7 +473,7 @@ function getBodyPosition(time, trajectory) {
   return [ x * DISTANCE_SCALE_FACTOR, y * DISTANCE_SCALE_FACTOR, z * DISTANCE_SCALE_FACTOR ]
 }
 
-function createCometsBuffer(gl, program, textures, scale) {
+function createCometsBuffer(gl, program, scale) {
   const comets = {}
 
   Object.keys(COMETS).forEach(cometKey => {
@@ -421,11 +486,7 @@ function createCometsBuffer(gl, program, textures, scale) {
       const uniforms = {
         u_worldMatrix: m4.identity(),
         u_viewProjectionMatrix: m4.identity(),
-        u_normalMatrix: m4.identity(),
-        u_texture: textures[cometKey],
-        u_lightPosition: [0, 0, 0],
-        u_lightColor: [1, 1, 1],
-        u_isEmissive: false
+        u_cometColor: [1, 1, 1]
       }
 
       comets[cometKey] = {
@@ -437,6 +498,38 @@ function createCometsBuffer(gl, program, textures, scale) {
   })
 
   return comets
+}
+
+function createCometTrailsBuffer(gl, program, scale) {
+  const cometTrails = {}
+
+  Object.keys(COMETS).forEach((cometKey, index) => {
+    const comet = COMETS[cometKey]
+    const radius = scale.get(comet) * (index === 0 ? 0.8 : 0.5) // rastro um pouco menor que o cometa
+
+    if (radius) {
+      const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, 12, 6)
+
+      const uniforms = {
+        u_worldMatrix: m4.identity(),
+        u_viewProjectionMatrix: m4.identity(),
+        u_normalMatrix: m4.identity(),
+        u_lightPosition: [0, 0, 0],
+        u_lightColor: [1, 1, 1],
+        u_trailColor: [1.0, 0.8, 0.2, 1.0],
+        u_alpha: 0.5
+      }
+
+      cometTrails[cometKey] = {
+        buffer,
+        uniforms,
+        vao: twgl.createVAOFromBufferInfo(gl, program, buffer),
+        programInfo: program
+      }
+    }
+  })
+
+  return cometTrails
 }
 
 function createSunBuffer(gl, program, texture, radius) {
@@ -455,6 +548,21 @@ function createSunBuffer(gl, program, texture, radius) {
     uniforms,
     vao: twgl.createVAOFromBufferInfo(gl, program, buffer)
   }
+}
+
+function getFocusPosition(focusTarget, time, planets, comets, sun) {
+  if (focusTarget === 'SUN') return [0, 0, 0]
+  
+  if (PLANETS[focusTarget]) {
+    const orbitalSpeed = PLANET_ORBITAL_SPEEDS.get(PLANETS[focusTarget])
+    return getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[focusTarget])
+  }
+  
+  if (COMETS[focusTarget]) {
+    return getBodyPosition(time * 0.05, TRAJECTORIES[focusTarget])
+  }
+
+  return [0, 0, 0]
 }
 
 main()

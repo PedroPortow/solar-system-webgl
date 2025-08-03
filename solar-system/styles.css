@@ -41,6 +41,20 @@ button {
   gap: 10px;
 }
 
-.controls button, .controls label, .controls input {
+.controls button, .controls label, .controls input, .controls select {
   font-size: 16px;
+}
+
+.focus-selector {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.focus-selector option {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
 }

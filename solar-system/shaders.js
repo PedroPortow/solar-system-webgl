@@ -303,3 +303,83 @@ export const sunFragmentShader = `#version 300 es
     outColor = vec4(color, 1.0) * texColor;
   }
 `;
+
+export const cometTrailVertexShader = `#version 300 es
+  in vec4 a_position;
+  in vec3 a_normal;
+  in vec2 a_texcoord;
+
+  uniform mat4 u_worldMatrix;
+  uniform mat4 u_viewProjectionMatrix;
+  uniform mat4 u_normalMatrix;
+
+  out vec3 v_normal;
+  out vec3 v_worldPosition;
+  out vec2 v_texcoord;
+
+  void main() {
+    vec4 worldPosition = u_worldMatrix * a_position;
+    v_worldPosition = worldPosition.xyz;
+    
+    v_normal = normalize((u_normalMatrix * vec4(a_normal, 0.0)).xyz);
+    
+    v_texcoord = a_texcoord;
+    
+    gl_Position = u_viewProjectionMatrix * worldPosition;
+  }
+`;
+
+export const cometTrailFragmentShader = `#version 300 es
+  precision highp float;
+
+  in vec3 v_normal;
+  in vec3 v_worldPosition;
+  in vec2 v_texcoord;
+
+  uniform vec3 u_lightPosition;
+  uniform vec3 u_lightColor;
+  uniform vec4 u_trailColor;
+  uniform float u_alpha;
+
+  out vec4 outColor;
+
+  void main() {
+    vec3 normal = normalize(v_normal);
+    vec3 lightDirection = normalize(u_lightPosition - v_worldPosition);
+    
+    vec3 ambient = 0.3 * u_lightColor;
+    
+    float dotProduct = dot(normal, lightDirection);
+    float diffuseIntensity = max(dotProduct, 0.0);
+    vec3 diffuse = diffuseIntensity * u_lightColor;
+    
+    vec3 finalColor = ambient + diffuse;
+    
+    outColor = vec4(finalColor * u_trailColor.rgb, u_alpha);
+  }
+`;
+
+export const cometVertexShader = `#version 300 es
+  in vec4 a_position;
+
+  uniform mat4 u_worldMatrix;
+  uniform mat4 u_viewProjectionMatrix;
+
+  void main() {
+    gl_Position = u_viewProjectionMatrix * u_worldMatrix * a_position;
+  }
+`;
+
+export const cometFragmentShader = `#version 300 es
+  precision mediump float;
+
+  uniform vec3 u_cometColor;
+
+  out vec4 outColor;
+
+  void main() {
+    vec3 finalColor = u_cometColor * 1.5;
+    
+    outColor = vec4(finalColor, 1.0);
+  }
+`;

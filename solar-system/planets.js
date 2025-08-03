@@ -93,9 +93,9 @@ export const PLANET_DISPLAY_SCALE = new Map([
 ]);
 
 export const COMET_DISPLAY_SCALE = new Map([
-  [COMETS.HALLEY, 40],
-  [COMETS.VOYAGER, 30],
-  [COMETS.MACHHOLZ, 20],      
+  [COMETS.HALLEY, 10],
+  [COMETS.VOYAGER, 10],
+  [COMETS.MACHHOLZ, 10],      
 ]);
 
 // reza a lenda que um dia vou deixar isso bonito com oop
