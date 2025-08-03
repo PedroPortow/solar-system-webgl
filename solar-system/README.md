@@ -16,9 +16,8 @@ Todo:
 <!-- - Adicionar shader nos cometas/sondas -->
 <!-- - As trajetórias tem imperfeições, precisa de correções pra fechar uma órbita bonita sem "overwrite" ou espaços faltando. Bolar algo pra arrumar isso -->
 <!--- Carregar aync as texturas, isso tá ferrando com a lógica do tempo-->
-
-- Verificar uma ultima vez a escala das coisas...
-- Tentar adicionar um shader mais bonito no sol
+<!--- Verificar uma ultima vez a escala das coisas...-->
+<!--- Tentar adicionar um shader mais bonito no sol-->
 - Tentar deixar o shader dos cometas mais bonitos
 - Adicionar lua da terra e lua de marte (phobos)
 - Refatorar esse código horroroso
