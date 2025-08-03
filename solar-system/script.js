@@ -1,7 +1,7 @@
 "use strict"
 
 import { DIRECTIONS, DISTANCE_SCALE_FACTOR, SIMULATION_START_DATE, TEXTURES, TRAJECTORIES } from "./constants.js"
-import { COMETS, COMET_DISPLAY_SCALE, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
+import { COMETS, COMET_DISPLAY_SCALE, COMET_ORBITAL_SPEEDS, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
 import { bodyFragmentShader, bodyVertexShader, cometFragmentShader, cometTrailFragmentShader, cometTrailVertexShader, cometVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
 import { degToRad, formatDate, smoothTrajectory } from "./utils.js"
 
@@ -148,7 +148,7 @@ function main() {
       return acc
     }, {}),
     ...Object.keys(COMETS).reduce((acc, cometKey) => {
-      acc[cometKey] = createOrbitBuffer(gl, orbitProgram, TRAJECTORIES[cometKey])
+      acc[cometKey] = createOrbitBuffer(gl, orbitProgram, TRAJECTORIES[cometKey], cometKey === 'VOYAGER' || cometKey === 'MACHHOLZ')
       return acc
     }, {})
   }
@@ -296,7 +296,8 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     const cometRenderable = comets[cometKey]
     const speedInfo = COMET_SPEEDS.get(comet)
 
-    const cometPosition = getBodyPosition(time * 0.05, TRAJECTORIES[cometKey])
+    const orbitalSpeed = COMET_ORBITAL_SPEEDS.get(comet)
+    const cometPosition = getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[cometKey])
     const cometRotation = time * speedInfo.rotation
     
     // Atualizar histórico de posições para o rastro (apenas a cada 5 frames)
@@ -438,8 +439,8 @@ function createSkyboxBuffer(gl, program, texture) {
   }
 }
 
-function createOrbitBuffer(gl, orbitProgram, trajectoryData) {
-  const smoothedTrajectory = smoothTrajectory(trajectoryData, 5)
+function createOrbitBuffer(gl, orbitProgram, trajectoryData, avoidSmootyTrajectory = false) {
+  const smoothedTrajectory = avoidSmootyTrajectory ? trajectoryData : smoothTrajectory(trajectoryData, 5)
   const positions = []
 
   for (let i = 0; i < smoothedTrajectory.length; i++) {
@@ -564,7 +565,8 @@ function getFocusPosition(focusTarget, time, planets, comets, sun) {
   }
   
   if (COMETS[focusTarget]) {
-    return getBodyPosition(time * 0.05, TRAJECTORIES[focusTarget])
+    const orbitalSpeed = COMET_ORBITAL_SPEEDS.get(COMETS[focusTarget])
+    return getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[focusTarget])
   }
 
   return [0, 0, 0]

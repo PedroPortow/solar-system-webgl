@@ -61,20 +61,20 @@ export const PLANETS = {
   },
 };
 
-export const COMETS = {  //  TODO: n é só comenta né, arrumar isso
-  HALLEY: {  //  TODO: arrumar esses dados
+export const COMETS = {
+  HALLEY: {
     radius: 5.5,
-    orbitalPeriod: 27503,
+    orbitalPeriod: 27503, // ~75 anos
     rotationPeriod: 2.2,
   },
-  VOYAGER: {  //  TODO: arrumar esses dados
+  VOYAGER: {
     radius: 3.0,
-    orbitalPeriod: 20000,
+    orbitalPeriod: 43800, // ~120 anos 
     rotationPeriod: 1.5,
   },
-  MACHHOLZ: { //  TODO: arrumar esses dados
+  MACHHOLZ: {
     radius: 1.0,
-    orbitalPeriod: 100000,
+    orbitalPeriod: 1929, // ~5.28 anos
     rotationPeriod: 1.0,
   }
 }
@@ -138,4 +138,10 @@ export const PLANET_ORBITAL_SPEEDS = new Map([
   [PLANETS.URANUS, PLANETS.EARTH.orbitalPeriod / PLANETS.URANUS.orbitalPeriod],  
   [PLANETS.NEPTUNE, PLANETS.EARTH.orbitalPeriod / PLANETS.NEPTUNE.orbitalPeriod], 
   [PLANETS.PLUTO, PLANETS.EARTH.orbitalPeriod / PLANETS.PLUTO.orbitalPeriod],  
+]);
+
+export const COMET_ORBITAL_SPEEDS = new Map([
+  [COMETS.HALLEY, PLANETS.EARTH.orbitalPeriod / COMETS.HALLEY.orbitalPeriod],     // ~75 anos
+  [COMETS.VOYAGER, PLANETS.EARTH.orbitalPeriod / COMETS.VOYAGER.orbitalPeriod],   // ~120 anos
+  [COMETS.MACHHOLZ, PLANETS.EARTH.orbitalPeriod / COMETS.MACHHOLZ.orbitalPeriod], // ~5.28 anos
 ]);
