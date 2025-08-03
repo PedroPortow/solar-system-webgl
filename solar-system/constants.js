@@ -47,3 +47,5 @@ export const TRAJECTORIES = {
 
 export const EARTH_DISTANCE_FROM_SUN = 149600000
 export const DISTANCE_SCALE_FACTOR = 600 / EARTH_DISTANCE_FROM_SUN;
+
+export const SIMULATION_START_DATE = new Date(2024, 0, 1); 

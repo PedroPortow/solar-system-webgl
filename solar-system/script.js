@@ -1,9 +1,9 @@
 "use strict"
 
-import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES, TRAJECTORIES } from "./constants.js"
+import { DIRECTIONS, DISTANCE_SCALE_FACTOR, SIMULATION_START_DATE, TEXTURES, TRAJECTORIES } from "./constants.js"
 import { COMETS, COMET_DISPLAY_SCALE, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
 import { bodyFragmentShader, bodyVertexShader, cometFragmentShader, cometTrailFragmentShader, cometTrailVertexShader, cometVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
-import { degToRad, smoothTrajectory } from "./utils.js"
+import { degToRad, formatDate, smoothTrajectory } from "./utils.js"
 
 
 const height = document.documentElement.clientHeight
@@ -16,6 +16,9 @@ function main() {
   const reverseButton = document.querySelector(".reverse-button")
   const speedSlider = document.querySelector(".speed-slider")
   const focusSelector = document.querySelector(".focus-selector")
+  const currentDateElement = document.querySelector("#current-date")
+  
+  currentDateElement.textContent = formatDate(SIMULATION_START_DATE)
 
   const playIcon = playPauseButton.querySelector(".fa-play")
   const pauseIcon = playPauseButton.querySelector(".fa-pause")
@@ -157,6 +160,8 @@ function main() {
     const deltaTime = now - previousTime
     previousTime = now
     time += deltaTime * speed * direction * 0.0001
+
+    updateSimulationTime(time, currentDateElement)
 
     const camera = { angleX: cameraAngleX, angleY: cameraAngleY, distance: cameraDistance, focusTarget }
 
@@ -563,6 +568,15 @@ function getFocusPosition(focusTarget, time, planets, comets, sun) {
   }
 
   return [0, 0, 0]
+}
+
+function updateSimulationTime(time, dateElement) {
+  const totalEarthOrbits = time * 0.01
+  const totalDaysElapsed = totalEarthOrbits * PLANETS.EARTH.orbitalPeriod
+  
+  const currentDate = new Date(SIMULATION_START_DATE.getTime() + (totalDaysElapsed * 24 * 60 * 60 * 1000))
+  
+  dateElement.textContent = formatDate(currentDate)
 }
 
 main()
