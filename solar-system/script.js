@@ -1,7 +1,7 @@
 "use strict"
 
 import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES, TRAJECTORIES } from "./constants.js"
-import { COMETS, COMET_DISPLAY_SCALE, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
+import { COMETS, COMET_DISPLAY_SCALE, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
 import { orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, texturedFragmentShader, texturedVertexShader } from "./shaders.js"
 import { degToRad } from "./utils.js"
 
@@ -127,17 +127,13 @@ function main() {
       if (planetKey !== 'SUN') {
         acc[planetKey] = createOrbitBuffer(gl, orbitProgram, TRAJECTORIES[planetKey])
       }
-      
+
       return acc
     }, {}),
-    // ...Object.keys(COMETS).reduce((acc, cometKey) => {
-    //   if (cometKey === 'HALLEY') {
-    //     acc[cometKey] = createOrbitBuffer(gl, orbitProgram, HALLEY_TRAJECTORY)
-    //   } else if (cometKey === 'VOYAGER') {
-    //     acc[cometKey] = createOrbitBuffer(gl, orbitProgram, VOYAGER_TRAJECTORY)
-    //   }
-    //   return acc
-    // }, {})
+    ...Object.keys(COMETS).reduce((acc, cometKey) => {
+      acc[cometKey] = createOrbitBuffer(gl, orbitProgram, TRAJECTORIES[cometKey])
+      return acc
+    }, {})
   }
 
 
@@ -219,17 +215,19 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
 
   Object.keys(orbits).forEach(objectKey => {
     if (objectKey !== 'program') {
-      // if (objectKey === 'HALLEY') {
-      //   const halleyUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [1.0, 0.8, 0.2], u_alpha: 0.8 }
-      //   twgl.setUniforms(orbits.program, halleyUniforms)
-      // } else if (objectKey === 'VOYAGER') {
-      //   const voyagerUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [0.2, 0.8, 1.0], u_alpha: 0.8 }
-      //   twgl.setUniforms(orbits.program, voyagerUniforms)
-      // } else {
+      if (objectKey === 'HALLEY') {
+        const halleyUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [1.0, 0.8, 0.2], u_alpha: 0.8 }
+        twgl.setUniforms(orbits.program, halleyUniforms)
+      } else if (objectKey === 'VOYAGER') {
+        const voyagerUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [0.2, 0.8, 1.0], u_alpha: 0.8 }
+        twgl.setUniforms(orbits.program, voyagerUniforms)
+      } else {
+
       twgl.setUniforms(orbits.program, orbitUniforms)
-      // }
+      }
+
       gl.bindVertexArray(orbits[objectKey].vao)
-      gl.drawArrays(gl.LINE_STRIP, 0, orbits[objectKey].numElements)
+      gl.drawArrays(gl.LINE_LOOP, 0, orbits[objectKey].numElements)
     }
   })
 
@@ -251,21 +249,15 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     }
   })
 
-  // Object.keys(comets).forEach(cometKey => {
-  //   const comet = COMETS[cometKey]
-  //   const cometRenderable = comets[cometKey]
-  //   const speedInfo = COMET_SPEEDS.get(comet)
+  Object.keys(comets).forEach(cometKey => {
+    const comet = COMETS[cometKey]
+    const cometRenderable = comets[cometKey]
+    const speedInfo = COMET_SPEEDS.get(comet)
 
-  //   if (cometKey === 'HALLEY') {
-  //     const cometPosition = getBodyPosition(time * 0.1, HALLEY_TRAJECTORY)
-  //     const cometRotation = time * speedInfo.rotation
-  //     cometRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, cometPosition, 0, cometRotation)
-  //   } else if (cometKey === 'VOYAGER') {
-  //     const cometPosition = getBodyPosition(time * 0.05, VOYAGER_TRAJECTORY)
-  //     const cometRotation = time * speedInfo.rotation
-  //     cometRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, cometPosition, 0, cometRotation)
-  //   }
-  // })
+    const cometPosition = getBodyPosition(time * 0.05, TRAJECTORIES[cometKey])
+    const cometRotation = time * speedInfo.rotation
+    cometRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, cometPosition, 0, cometRotation)
+  })
 
   objectsToDraw.forEach(function(object) {
     const programInfo = object.programInfo
@@ -338,6 +330,7 @@ function createOrbitBuffer(gl, orbitProgram, trajectoryData) {
 
     positions.push(x, y, z)
   }
+
 
   const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
     position: { numComponents: 3, data: new Float32Array(positions) }

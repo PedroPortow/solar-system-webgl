@@ -1,12 +1,14 @@
-import { MERCURY_TRAJECTORY } from "./trajectories/mercuryTrajectory.js"
-import { VENUS_TRAJECTORY } from "./trajectories/venusTrajectory.js"
 import { EARTH_TRAJECTORY } from "./trajectories/earthTrajectory.js"
-import { MARS_TRAJECTORY } from "./trajectories/marsTrajectory.js"
+import { HALLEY_TRAJECTORY } from "./trajectories/halleyTrajectory.js"
 import { JUPITER_TRAJECTORY } from "./trajectories/jupiterTrajectory.js"
-import { SATURN_TRAJECTORY } from "./trajectories/saturnTrajectory.js"
-import { URANUS_TRAJECTORY } from "./trajectories/uranusTrajectory.js"
+import { MARS_TRAJECTORY } from "./trajectories/marsTrajectory.js"
+import { MERCURY_TRAJECTORY } from "./trajectories/mercuryTrajectory.js"
 import { NEPTUNE_TRAJECTORY } from "./trajectories/neptuneTrajectory.js"
 import { PLUTO_TRAJECTORY } from "./trajectories/plutoTrajectory.js"
+import { SATURN_TRAJECTORY } from "./trajectories/saturnTrajectory.js"
+import { URANUS_TRAJECTORY } from "./trajectories/uranusTrajectory.js"
+import { VENUS_TRAJECTORY } from "./trajectories/venusTrajectory.js"
+import { VOYAGER_TRAJECTORY } from "./trajectories/voyagerTrajectory.js"
 
 export const DIRECTIONS = { FORWARD: 1, BACKWARD: -1 }
 
@@ -33,7 +35,9 @@ export const TRAJECTORIES = {
   'PLUTO': PLUTO_TRAJECTORY,
   'SATURN': SATURN_TRAJECTORY,
   'URANUS': URANUS_TRAJECTORY,
-  'VENUS': VENUS_TRAJECTORY
+  'VENUS': VENUS_TRAJECTORY,
+  'HALLEY': HALLEY_TRAJECTORY,
+  'VOYAGER': VOYAGER_TRAJECTORY
 }
 
 
