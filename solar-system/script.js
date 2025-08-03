@@ -1,6 +1,6 @@
 "use strict"
 
-import { DIRECTIONS, DISTANCE_SCALE_FACTOR, SIMULATION_START_DATE, TEXTURES, TRAJECTORIES } from "./constants.js"
+import { CAMERA_CONTROLS, DIRECTIONS, DISTANCE_SCALE_FACTOR, SIMULATION_START_DATE, TEXTURES, TIME_SCALE, TRAJECTORIES } from "./constants.js"
 import { COMETS, COMET_DISPLAY_SCALE, COMET_ORBITAL_SPEEDS, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
 import { bodyFragmentShader, bodyVertexShader, cometFragmentShader, cometTrailFragmentShader, cometTrailVertexShader, cometVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
 import { degToRad, formatDate, smoothTrajectory } from "./utils.js"
@@ -13,11 +13,10 @@ function main() {
   const gl = canvas.getContext("webgl2")
 
   const playPauseButton = document.querySelector(".play-pause-button")
-  const reverseButton = document.querySelector(".reverse-button")
   const speedSlider = document.querySelector(".speed-slider")
   const focusSelector = document.querySelector(".focus-selector")
   const currentDateElement = document.querySelector("#current-date")
-  
+
   currentDateElement.textContent = formatDate(SIMULATION_START_DATE)
 
   const playIcon = playPauseButton.querySelector(".fa-play")
@@ -26,7 +25,6 @@ function main() {
   let time = 0
   let isPaused = false
   let speed = 1
-  let direction = DIRECTIONS.FORWARD
   let previousTime = 0
 
   let cameraAngleX = 0
@@ -35,7 +33,7 @@ function main() {
   let isDragging = false
   let previousMouseX = 0
   let previousMouseY = 0
-  let focusTarget = 'SUN' 
+  let focusTarget = 'SUN'
 
   canvas.addEventListener("mousedown", (e) => {
     if (e.button === 0) {
@@ -54,15 +52,15 @@ function main() {
     previousMouseX = e.clientX
     previousMouseY = e.clientY
 
-    cameraAngleX += deltaX * 0.005
-    cameraAngleY += deltaY * 0.005
-    cameraAngleY = Math.max(0.1, Math.min(Math.PI - 0.1, cameraAngleY))
+    cameraAngleX += deltaX * CAMERA_CONTROLS.MOUSE_SENSITIVITY
+    cameraAngleY += deltaY * CAMERA_CONTROLS.MOUSE_SENSITIVITY
+    cameraAngleY = Math.max(CAMERA_CONTROLS.MIN_ANGLE_Y, Math.min(CAMERA_CONTROLS.MAX_ANGLE_Y, cameraAngleY))
   })
 
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault()
     cameraDistance += e.deltaY
-    cameraDistance = Math.max(25, Math.min(25000, cameraDistance))
+    cameraDistance = Math.max(CAMERA_CONTROLS.MIN_DISTANCE, Math.min(CAMERA_CONTROLS.MAX_DISTANCE, cameraDistance))
   })
 
   playPauseButton.addEventListener("click", () => {
@@ -72,10 +70,6 @@ function main() {
     pauseIcon.style.display = isPaused ? "block" : "none"
 
     if (!isPaused) requestAnimationFrame(updateScene)
-  })
-
-  reverseButton.addEventListener("click", () => {
-    direction = direction === DIRECTIONS.FORWARD ? DIRECTIONS.BACKWARD : DIRECTIONS.FORWARD
   })
 
   speedSlider.addEventListener("input", (event) => {
@@ -114,7 +108,7 @@ function main() {
   const skybox = createSkyboxBuffer(gl, skyboxProgram, skyboxTexture)
 
   const cometPositionHistory = new Map()
-  const TRAIL_LENGTH = 8 
+  const TRAIL_LENGTH = 8
   let frameCount = 0
 
   const objectsToDraw = [
@@ -159,7 +153,7 @@ function main() {
 
     const deltaTime = now - previousTime
     previousTime = now
-    time += deltaTime * speed * direction * 0.0001
+    time += deltaTime * speed * TIME_SCALE.SIMULATION_SPEED
 
     updateSimulationTime(time, currentDateElement)
 
@@ -189,21 +183,21 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
   const projectionMatrix = m4.perspective(fieldOfViewRadians, aspectRatio, 10, 50000)
 
   const focusPosition = getFocusPosition(camera.focusTarget, time, planets, comets, sun)
-  
+
   const cameraPosition = [
     focusPosition[0] + camera.distance * Math.sin(camera.angleY) * Math.cos(camera.angleX),
     focusPosition[1] + camera.distance * Math.cos(camera.angleY),
     focusPosition[2] + camera.distance * Math.sin(camera.angleY) * Math.sin(camera.angleX)
   ]
-  
+
   const upVector = [0, 1, 0]
   const cameraMatrix = m4.lookAt(cameraPosition, focusPosition, upVector)
 
   const viewMatrix = m4.inverse(cameraMatrix)
   const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix)
 
-  const lightPosition = [0, 0, 0] 
-  const lightColor = [1.5, 1.4, 1.2] 
+  const lightPosition = [0, 0, 0]
+  const lightColor = [1.5, 1.4, 1.2]
   const viewPosition = cameraPosition
 
   // Desativa o negócio de não desenhar as coisas de trás, porque nós estamos dentro da
@@ -264,7 +258,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
   const sunRotation = time * PLANETS_ROTATION_SPEED.get(PLANETS.SUN)
   const sunWorldMatrix = computeWorldMatrix([0, 0, 0], 0, sunRotation)
   const sunNormalMatrix = m4.transpose(m4.inverse(sunWorldMatrix))
-  
+
   sun.uniforms.u_worldMatrix = sunWorldMatrix
   sun.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
   sun.uniforms.u_normalMatrix = sunNormalMatrix
@@ -276,12 +270,12 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     const planetRotationSpeed = PLANETS_ROTATION_SPEED.get(planet)
 
     const orbitalSpeed = PLANET_ORBITAL_SPEEDS.get(planet)
-    const planetPosition = getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[planetKey])
+    const planetPosition = getBodyPosition(time * TIME_SCALE.ORBITAL_SPEED_MULTIPLIER * orbitalSpeed, TRAJECTORIES[planetKey])
     const planetRotation = time * planetRotationSpeed
-    
+
     const worldMatrix = computeWorldMatrix(planetPosition, 0, planetRotation)
     const normalMatrix = m4.transpose(m4.inverse(worldMatrix))
-    
+
     planetRenderable.uniforms.u_worldMatrix = worldMatrix
     planetRenderable.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
     planetRenderable.uniforms.u_normalMatrix = normalMatrix
@@ -296,9 +290,9 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     const speedInfo = COMET_SPEEDS.get(comet)
 
     const orbitalSpeed = COMET_ORBITAL_SPEEDS.get(comet)
-    const cometPosition = getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[cometKey], cometKey === 'VOYAGER' || cometKey === 'MACHHOLZ')
+    const cometPosition = getBodyPosition(time * TIME_SCALE.ORBITAL_SPEED_MULTIPLIER * orbitalSpeed, TRAJECTORIES[cometKey], cometKey === 'VOYAGER' || cometKey === 'MACHHOLZ')
     const cometRotation = time * speedInfo.rotation
-    
+
     // Atualizar histórico de posições para o rastro (apenas a cada 5 frames)
     if (frameCount % 5 === 0) {
       if (!cometPositionHistory.has(cometKey)) {
@@ -310,12 +304,12 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
         history.shift()
       }
     }
-    
+
     const worldMatrix = computeWorldMatrix(cometPosition, 0, cometRotation)
-    
+
     cometRenderable.uniforms.u_worldMatrix = worldMatrix
     cometRenderable.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
-    
+
     let cometColor
 
     switch (cometKey) {
@@ -323,7 +317,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
         cometColor = [1.0, 0.3, 0.1] // laranja
         break
       case 'VOYAGER':
-        cometColor = [0.1, 0.8, 1.0] // azul 
+        cometColor = [0.1, 0.8, 1.0] // azul
         break
       case 'MACHHOLZ':
         cometColor = [0.8, 0.1, 1.0] // rosa
@@ -342,14 +336,14 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     if (!history || history.length < 2) return
 
     const cometTrailRenderable = cometTrails[cometKey]
-    
+
     for (let i = 0; i < history.length - 1; i++) {
-      const alpha = (1.0 - (i / (history.length - 1))) * 0.8 
+      const alpha = (1.0 - (i / (history.length - 1))) * 0.8
       const trailPosition = history[i]
-      
+
       const trailWorldMatrix = computeWorldMatrix(trailPosition, 0, 0)
       const trailNormalMatrix = m4.transpose(m4.inverse(trailWorldMatrix))
-      
+
       cometTrailRenderable.uniforms.u_worldMatrix = trailWorldMatrix
       cometTrailRenderable.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
       cometTrailRenderable.uniforms.u_normalMatrix = trailNormalMatrix
@@ -464,7 +458,7 @@ function getBodyPosition(time, trajectory, avoidSmoothTrajectory = false) {
   const nextPoint = smoothedTrajectory[nextIndex]
 
   const t = (time * trajectoryLength) % 1
-  
+
   const x = currentPoint.x + (nextPoint.x - currentPoint.x) * t
   const y = currentPoint.z + (nextPoint.z - currentPoint.z) * t
   const z = currentPoint.y + (nextPoint.y - currentPoint.y) * t
@@ -551,26 +545,26 @@ function createSunBuffer(gl, program, texture, radius) {
 
 function getFocusPosition(focusTarget, time, planets, comets, sun) {
   if (focusTarget === 'SUN') return [0, 0, 0]
-  
+
   if (PLANETS[focusTarget]) {
     const orbitalSpeed = PLANET_ORBITAL_SPEEDS.get(PLANETS[focusTarget])
-    return getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[focusTarget])
+    return getBodyPosition(time * TIME_SCALE.ORBITAL_SPEED_MULTIPLIER * orbitalSpeed, TRAJECTORIES[focusTarget])
   }
-  
+
   if (COMETS[focusTarget]) {
     const orbitalSpeed = COMET_ORBITAL_SPEEDS.get(COMETS[focusTarget])
-    return getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[focusTarget], focusTarget === 'VOYAGER' || focusTarget === 'MACHHOLZ' )
+    return getBodyPosition(time * TIME_SCALE.ORBITAL_SPEED_MULTIPLIER * orbitalSpeed, TRAJECTORIES[focusTarget], focusTarget === 'VOYAGER' || focusTarget === 'MACHHOLZ' )
   }
 
   return [0, 0, 0]
 }
 
 function updateSimulationTime(time, dateElement) {
-  const totalEarthOrbits = time * 0.01
+  const totalEarthOrbits = time * TIME_SCALE.ORBITAL_SPEED_MULTIPLIER
   const totalDaysElapsed = totalEarthOrbits * PLANETS.EARTH.orbitalPeriod
-  
+
   const currentDate = new Date(SIMULATION_START_DATE.getTime() + (totalDaysElapsed * 24 * 60 * 60 * 1000))
-  
+
   dateElement.textContent = formatDate(currentDate)
 }
 

@@ -44,8 +44,20 @@ export const TRAJECTORIES = {
   'MACHHOLZ': MACHHOLZ_TRAJECTORY
 }
 
+export const TIME_SCALE = {
+  SIMULATION_SPEED: 0.0001, // 1O segundos = 1 unidade da simulão
+  ORBITAL_SPEED_MULTIPLIER: 0.01,
+}
+
+export const CAMERA_CONTROLS = {
+  MOUSE_SENSITIVITY: 0.005,
+  MIN_DISTANCE: 100,
+  MAX_DISTANCE: 25000,
+  MIN_ANGLE_Y: 0.1,
+  MAX_ANGLE_Y: Math.PI - 0.1
+}
 
 export const EARTH_DISTANCE_FROM_SUN = 149600000
 export const DISTANCE_SCALE_FACTOR = 0.000009
 
-export const SIMULATION_START_DATE = new Date(2024, 0, 1); 
+export const SIMULATION_START_DATE = new Date(2024, 0, 1);
