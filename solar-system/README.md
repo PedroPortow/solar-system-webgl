@@ -10,11 +10,10 @@ https://ssd.jpl.nasa.gov/horizons/app.html#/
 
 Todo:
 
-- Refatorar pra usar rotas heliocentricas reais de algum periodo (https://omniweb.gsfc.nasa.gov/coho/helios/heli.html)
-- Refatorar pra usar os dados reais dos planetas (https://nssdc.gsfc.nasa.gov/planetary/factsheet/)
-- Adicionar lua da terra e lua de marte (phobos)
-- Adicionar textura pros planetas
-- Adicionar shader realista no sol
-- Adicionar 3 objetos (não planetas, tipo satelites, meteoro etc) e desenhar rota deles
+- Adicionar iluminação e shader bonito no sol
+- Adicionar mais um cometa ou satélite ou algo assim
+- Adicionar shader nos cometas/sondas
+- As trajetórias tem imperfeições, precisa de correções pra fechar uma órbita bonita sem "overwrite" ou espaços faltando. Bolar algo pra arrumar isso
 - Adicionar algoritmo do lod se der tempo pra desenhar com menos detalhes dependendo da distância
   da camera
+- Adicionar lua da terra e lua de marte (phobos)
