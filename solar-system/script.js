@@ -288,7 +288,6 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     planetRenderable.uniforms.u_lightPosition = lightPosition
     planetRenderable.uniforms.u_lightColor = lightColor
     planetRenderable.uniforms.u_viewPosition = viewPosition
-    planetRenderable.uniforms.u_isEmissive = false
   })
 
   Object.keys(comets).forEach(cometKey => {
@@ -297,7 +296,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     const speedInfo = COMET_SPEEDS.get(comet)
 
     const orbitalSpeed = COMET_ORBITAL_SPEEDS.get(comet)
-    const cometPosition = getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[cometKey])
+    const cometPosition = getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[cometKey], cometKey === 'VOYAGER' || cometKey === 'MACHHOLZ')
     const cometRotation = time * speedInfo.rotation
     
     // Atualizar histórico de posições para o rastro (apenas a cada 5 frames)
@@ -400,7 +399,6 @@ function createPlanetsBuffer(gl, program, textures, scale) {
         u_lightPosition: [0, 0, 0],
         u_lightColor: [1, 1, 1],
         u_viewPosition: [0, 0, 0],
-        u_isEmissive: false
       }
 
       planets[planetKey] = {
@@ -414,15 +412,9 @@ function createPlanetsBuffer(gl, program, textures, scale) {
   return planets
 }
 
-// function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) {
-//   // transalação + rotação x + rotação y
-//   let matrix = m4.translate(viewProjectionMatrix, translation[0], translation[1], translation[2])
-//   matrix = m4.xRotate(matrix, xRotation)
-//   return m4.yRotate(matrix, yRotation)
-// }
-
 function computeWorldMatrix(translation, xRotation, yRotation) {
   let matrix = m4.translation(translation[0], translation[1], translation[2])
+
   matrix = m4.xRotate(matrix, xRotation)
   return m4.yRotate(matrix, yRotation)
 }
@@ -461,14 +453,15 @@ function createOrbitBuffer(gl, orbitProgram, trajectoryData, avoidSmootyTrajecto
   return { bufferInfo, vao, numElements: positions.length / 3 }
 }
 
-function getBodyPosition(time, trajectory) {
-  const trajectoryLength = trajectory.length
+function getBodyPosition(time, trajectory, avoidSmoothTrajectory = false) {
+  const smoothedTrajectory = avoidSmoothTrajectory ? trajectory : smoothTrajectory(trajectory, 5)
+  const trajectoryLength = smoothedTrajectory.length
 
   const currentIndex = Math.floor((time % 1) * trajectoryLength)
   const nextIndex = (currentIndex + 1) % trajectoryLength
 
-  const currentPoint = trajectory[currentIndex]
-  const nextPoint = trajectory[nextIndex]
+  const currentPoint = smoothedTrajectory[currentIndex]
+  const nextPoint = smoothedTrajectory[nextIndex]
 
   const t = (time * trajectoryLength) % 1
   
@@ -566,7 +559,7 @@ function getFocusPosition(focusTarget, time, planets, comets, sun) {
   
   if (COMETS[focusTarget]) {
     const orbitalSpeed = COMET_ORBITAL_SPEEDS.get(COMETS[focusTarget])
-    return getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[focusTarget])
+    return getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[focusTarget], focusTarget === 'VOYAGER' || focusTarget === 'MACHHOLZ' )
   }
 
   return [0, 0, 0]

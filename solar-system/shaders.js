@@ -124,17 +124,11 @@ export const bodyFragmentShader = `#version 300 es
   uniform vec3 u_lightPosition;
   uniform vec3 u_lightColor;
   uniform vec3 u_viewPosition;
-  uniform bool u_isEmissive;
 
   out vec4 outColor;
 
   void main() {
     vec4 texColor = texture(u_texture, v_texcoord);
-    
-    if (u_isEmissive) {
-      outColor = texColor;
-      return;
-    }
     
     vec3 normal = normalize(v_normal);
     vec3 viewDirection = normalize(u_viewPosition - v_worldPosition);
