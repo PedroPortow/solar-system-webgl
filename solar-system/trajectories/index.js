@@ -1,9 +1,0 @@
-// export { default as EARTH_TRAJECTORY } from './earthTrajectory';
-// export { default as MARS_TRAJECTORY } from './marsTrajectory';
-// export { default as JUPITER_TRAJECTORY } from './jupiterTrajectory';
-// export { default as SATURN_TRAJECTORY } from './saturnTrajectory';
-// export { default as URANUS_TRAJECTORY } from './uranusTrajectory';
-// export { default as NEPTUNE_TRAJECTORY } from './neptuneTrajectory';
-// export { default as PLUTO_TRAJECTORY } from './plutoTrajectory';
-// export { default as VENUS_TRAJECTORY } from './venusTrajectory';
-// export { default as MERCURY_TRAJECTORY } from './mercuryTrajectory';
