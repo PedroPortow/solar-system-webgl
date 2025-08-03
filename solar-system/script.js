@@ -2,7 +2,7 @@
 
 import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES, TRAJECTORIES } from "./constants.js"
 import { COMETS, COMET_DISPLAY_SCALE, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
-import { orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, texturedFragmentShader, texturedVertexShader } from "./shaders.js"
+import { bodyFragmentShader, bodyVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
 import { degToRad } from "./utils.js"
 
 
@@ -79,7 +79,8 @@ function main() {
 
   twgl.setAttributePrefix("a_") // prefixo para os atributos
 
-  const planetsProgram = twgl.createProgramInfo(gl, [texturedVertexShader, texturedFragmentShader])
+  const planetsProgram = twgl.createProgramInfo(gl, [bodyVertexShader, bodyFragmentShader])
+  const sunProgram = twgl.createProgramInfo(gl, [sunVertexShader, sunFragmentShader])
   const orbitProgram = twgl.createProgramInfo(gl, [orbitVertexShader, orbitFragmentShader])
   const skyboxProgram = twgl.createProgramInfo(gl, [skyboxVertexShader, skyboxFragmentShader])
 
@@ -102,11 +103,18 @@ function main() {
 
   const skyboxTexture = twgl.createTexture(gl, { src: './assets/8k_stars_milky_way.jpg', crossOrigin: '' })
 
+  const sun = createSunBuffer(gl, sunProgram, planetTextures['SUN'], PLANET_DISPLAY_SCALE.get(PLANETS.SUN))
   const planets = createPlanetsBuffer(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
   const comets = createCometsBuffer(gl, planetsProgram, cometTextures, COMET_DISPLAY_SCALE)
-  const skybox = createSkybox(gl, skyboxProgram, skyboxTexture)
+  const skybox = createSkyboxBuffer(gl, skyboxProgram, skyboxTexture)
 
   const objectsToDraw = [
+    {
+      programInfo: sunProgram,
+      bufferInfo: sun.buffer,
+      vertexArray: sun.vao,
+      uniforms: sun.uniforms,
+    },
     ...Object.keys(planets).map(planetKey => ({
       programInfo: planetsProgram,
       bufferInfo: planets[planetKey].buffer,
@@ -146,7 +154,7 @@ function main() {
 
     const camera = { angleX: cameraAngleX, angleY: cameraAngleY, distance: cameraDistance }
 
-    drawScene({ time, gl, fieldOfViewRadians: degToRad(60), objectsToDraw, planets, comets, orbits, skybox, camera })
+    drawScene({ time, gl, fieldOfViewRadians: degToRad(60), objectsToDraw, planets, comets, orbits, skybox, camera, sun })
 
     requestAnimationFrame(updateScene)
   }
@@ -154,7 +162,7 @@ function main() {
   requestAnimationFrame(updateScene)
 }
 
-function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comets, orbits, skybox, camera }) {
+function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comets, orbits, skybox, camera, sun }) {
   twgl.resizeCanvasToDisplaySize(gl.canvas)
 
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
@@ -180,6 +188,10 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
 
   const viewMatrix = m4.inverse(cameraMatrix)
   const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix)
+
+  const lightPosition = [0, 0, 0] 
+  const lightColor = [1.5, 1.4, 1.2] 
+  const viewPosition = cameraPosition
 
   // Desativa o negócio de não desenhar as coisas de trás, porque nós estamos dentro da
   // esfera da skybox
@@ -236,20 +248,33 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
 
   gl.disable(gl.BLEND)
 
+  const sunRotation = time * PLANETS_ROTATION_SPEED.get(PLANETS.SUN)
+  const sunWorldMatrix = computeWorldMatrix([0, 0, 0], 0, sunRotation)
+  const sunNormalMatrix = m4.transpose(m4.inverse(sunWorldMatrix))
+  
+  sun.uniforms.u_worldMatrix = sunWorldMatrix
+  sun.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
+  sun.uniforms.u_normalMatrix = sunNormalMatrix
+  sun.uniforms.u_time = time
+
   Object.keys(planets).forEach(planetKey => {
     const planet = PLANETS[planetKey]
     const planetRenderable = planets[planetKey]
     const planetRotationSpeed = PLANETS_ROTATION_SPEED.get(planet)
 
-    if (PLANETS[planetKey] === PLANETS.SUN) {
-      const sunRotation = time * planetRotationSpeed
-      planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, [0, 0, 0], 0, sunRotation)
-    } else {
-      const orbitalSpeed = PLANET_ORBITAL_SPEEDS.get(planet)
-      const planetPosition = getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[planetKey])
-      const planetRotation = time * planetRotationSpeed
-      planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, planetPosition, 0, planetRotation)
-    }
+    const orbitalSpeed = PLANET_ORBITAL_SPEEDS.get(planet)
+    const planetPosition = getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[planetKey])
+    const planetRotation = time * planetRotationSpeed
+    
+    const worldMatrix = computeWorldMatrix(planetPosition, 0, planetRotation)
+    const normalMatrix = m4.transpose(m4.inverse(worldMatrix))
+    
+    planetRenderable.uniforms.u_worldMatrix = worldMatrix
+    planetRenderable.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
+    planetRenderable.uniforms.u_normalMatrix = normalMatrix
+    planetRenderable.uniforms.u_lightPosition = lightPosition
+    planetRenderable.uniforms.u_lightColor = lightColor
+    planetRenderable.uniforms.u_isEmissive = false
   })
 
   Object.keys(comets).forEach(cometKey => {
@@ -259,7 +284,16 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
 
     const cometPosition = getBodyPosition(time * 0.05, TRAJECTORIES[cometKey])
     const cometRotation = time * speedInfo.rotation
-    cometRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, cometPosition, 0, cometRotation)
+    
+    const worldMatrix = computeWorldMatrix(cometPosition, 0, cometRotation)
+    const normalMatrix = m4.transpose(m4.inverse(worldMatrix))
+    
+    cometRenderable.uniforms.u_worldMatrix = worldMatrix
+    cometRenderable.uniforms.u_viewProjectionMatrix = viewProjectionMatrix
+    cometRenderable.uniforms.u_normalMatrix = normalMatrix
+    cometRenderable.uniforms.u_lightPosition = lightPosition
+    cometRenderable.uniforms.u_lightColor = lightColor
+    cometRenderable.uniforms.u_isEmissive = false
   })
 
   objectsToDraw.forEach(function(object) {
@@ -276,18 +310,24 @@ function createPlanetsBuffer(gl, program, textures, scale) {
   const planets = {}
 
   Object.keys(PLANETS).forEach(planetKey => {
+    if (planetKey === 'SUN') return
+
     const planet = PLANETS[planetKey]
     const radius = scale.get(planet)
 
     if (radius) {
-      const detail = planetKey === 'SUN' ? [24, 12] : [16, 8]
+      const detail = [16, 8]
 
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, detail[0], detail[1])
 
       const uniforms = {
-        u_colorMult: planet.color,
-        u_matrix: m4.identity(),
+        u_worldMatrix: m4.identity(),
+        u_viewProjectionMatrix: m4.identity(),
+        u_normalMatrix: m4.identity(),
         u_texture: textures[planetKey],
+        u_lightPosition: [0, 0, 0],
+        u_lightColor: [1, 1, 1],
+        u_isEmissive: false
       }
 
       planets[planetKey] = {
@@ -301,14 +341,20 @@ function createPlanetsBuffer(gl, program, textures, scale) {
   return planets
 }
 
-function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) {
-  // transalação + rotação x + rotação y
-  let matrix = m4.translate(viewProjectionMatrix, translation[0], translation[1], translation[2])
+// function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) {
+//   // transalação + rotação x + rotação y
+//   let matrix = m4.translate(viewProjectionMatrix, translation[0], translation[1], translation[2])
+//   matrix = m4.xRotate(matrix, xRotation)
+//   return m4.yRotate(matrix, yRotation)
+// }
+
+function computeWorldMatrix(translation, xRotation, yRotation) {
+  let matrix = m4.translation(translation[0], translation[1], translation[2])
   matrix = m4.xRotate(matrix, xRotation)
   return m4.yRotate(matrix, yRotation)
 }
 
-function createSkybox(gl, program, texture) {
+function createSkyboxBuffer(gl, program, texture) {
   const sphereBufferInfo = flattenedPrimitives.createSphereBufferInfo(gl, 40000, 32, 16)
   const vao = twgl.createVAOFromBufferInfo(gl, program, sphereBufferInfo)
 
@@ -373,9 +419,13 @@ function createCometsBuffer(gl, program, textures, scale) {
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, 16, 8)
 
       const uniforms = {
-        u_colorMult: [1, 1, 1, 1],
-        u_matrix: m4.identity(),
+        u_worldMatrix: m4.identity(),
+        u_viewProjectionMatrix: m4.identity(),
+        u_normalMatrix: m4.identity(),
         u_texture: textures[cometKey],
+        u_lightPosition: [0, 0, 0],
+        u_lightColor: [1, 1, 1],
+        u_isEmissive: false
       }
 
       comets[cometKey] = {
@@ -387,6 +437,24 @@ function createCometsBuffer(gl, program, textures, scale) {
   })
 
   return comets
+}
+
+function createSunBuffer(gl, program, texture, radius) {
+  const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, 24, 12)
+
+  const uniforms = {
+    u_worldMatrix: m4.identity(),
+    u_viewProjectionMatrix: m4.identity(),
+    u_normalMatrix: m4.identity(),
+    u_texture: texture,
+    u_time: 0,
+  }
+
+  return {
+    buffer,
+    uniforms,
+    vao: twgl.createVAOFromBufferInfo(gl, program, buffer)
+  }
 }
 
 main()
