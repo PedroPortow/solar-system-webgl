@@ -3,7 +3,7 @@
 import { DIRECTIONS, DISTANCE_SCALE_FACTOR, TEXTURES, TRAJECTORIES } from "./constants.js"
 import { COMETS, COMET_DISPLAY_SCALE, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
 import { bodyFragmentShader, bodyVertexShader, cometFragmentShader, cometTrailFragmentShader, cometTrailVertexShader, cometVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
-import { degToRad } from "./utils.js"
+import { degToRad, smoothTrajectory } from "./utils.js"
 
 
 const height = document.documentElement.clientHeight
@@ -432,19 +432,17 @@ function createSkyboxBuffer(gl, program, texture) {
 }
 
 function createOrbitBuffer(gl, orbitProgram, trajectoryData) {
+  const smoothedTrajectory = smoothTrajectory(trajectoryData, 5)
   const positions = []
 
-  console.log(trajectoryData.length)
-
-  for (let i = 0; i < trajectoryData.length; i++) {
-    const point = trajectoryData[i]
+  for (let i = 0; i < smoothedTrajectory.length; i++) {
+    const point = smoothedTrajectory[i]
     const x = point.x * DISTANCE_SCALE_FACTOR
     const y = point.z * DISTANCE_SCALE_FACTOR
     const z = point.y * DISTANCE_SCALE_FACTOR
 
     positions.push(x, y, z)
   }
-
 
   const bufferInfo = twgl.createBufferInfoFromArrays(gl, {
     position: { numComponents: 3, data: new Float32Array(positions) }
