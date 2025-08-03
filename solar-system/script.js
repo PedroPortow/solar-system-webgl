@@ -282,6 +282,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     planetRenderable.uniforms.u_normalMatrix = normalMatrix
     planetRenderable.uniforms.u_lightPosition = lightPosition
     planetRenderable.uniforms.u_lightColor = lightColor
+    planetRenderable.uniforms.u_viewPosition = viewPosition
     planetRenderable.uniforms.u_isEmissive = false
   })
 
@@ -392,6 +393,7 @@ function createPlanetsBuffer(gl, program, textures, scale) {
         u_texture: textures[planetKey],
         u_lightPosition: [0, 0, 0],
         u_lightColor: [1, 1, 1],
+        u_viewPosition: [0, 0, 0],
         u_isEmissive: false
       }
 

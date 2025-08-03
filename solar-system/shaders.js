@@ -110,6 +110,9 @@ export const bodyVertexShader = `#version 300 es
   }
 `;
 
+/**
+ * Créditos efeito de fresnel: @see {https://www.youtube.com/watch?v=tR67QJsFiFo&ab_channel=SketchpunkLabs}
+ */
 export const bodyFragmentShader = `#version 300 es
   precision highp float;
 
@@ -120,6 +123,7 @@ export const bodyFragmentShader = `#version 300 es
   uniform sampler2D u_texture;
   uniform vec3 u_lightPosition;
   uniform vec3 u_lightColor;
+  uniform vec3 u_viewPosition;
   uniform bool u_isEmissive;
 
   out vec4 outColor;
@@ -133,6 +137,7 @@ export const bodyFragmentShader = `#version 300 es
     }
     
     vec3 normal = normalize(v_normal);
+    vec3 viewDirection = normalize(u_viewPosition - v_worldPosition);
     
     vec3 lightDirection = normalize(u_lightPosition - v_worldPosition);
     
@@ -141,8 +146,12 @@ export const bodyFragmentShader = `#version 300 es
     float dotProduct = dot(normal, lightDirection);
     float diffuseIntensity = max(dotProduct, 0.0);
     vec3 diffuse = diffuseIntensity * u_lightColor;
+
+    float rimDot = 1.0 - dot(normal, viewDirection);
+    float fresnel = smoothstep(0.6, 1.0, rimDot);
+    vec3 rim = fresnel * u_lightColor * 0.5;
     
-    vec3 finalColor = ambient + diffuse;
+    vec3 finalColor = ambient + diffuse + rim;
     
     outColor = vec4(finalColor, 1.0) * texColor;
   }
