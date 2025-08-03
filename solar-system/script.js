@@ -540,33 +540,24 @@ function createCometTrailsBuffer(gl, program, scale) {
 }
 
 function createCoronaBuffer(gl, program) {
-  // ciar um quad pra corona
-  const positions = [
-    -1, -1, 0,  // bottom left
-     1, -1, 0,  // bottom right
-    -1,  1, 0,  // top left
-     1,  1, 0,  // top right
-  ]
-
-  const texcoords = [
-    0, 0,  // bottom left
-    1, 0,  // bottom right
-    0, 1,  // top left
-    1, 1,  // top right
-  ]
-
-  const indices = [
-    0, 1, 2,  // primeiro triângulo
-    2, 1, 3,  // segundo triângulo
-  ]
-
-  const arrays = {
-    position: positions,
-    texcoord: texcoords,
-    indices: indices,
-  }
-
-  const buffer = twgl.createBufferInfoFromArrays(gl, arrays)
+  const buffer = twgl.createBufferInfoFromArrays(gl, {
+    position:  [
+      -1, -1, 0,  // bottom left
+       1, -1, 0,  // bottom right
+      -1,  1, 0,  // top left
+       1,  1, 0,  // top right
+    ],
+    texcoord:  [
+      0, 0,  // bottom left
+      1, 0,  // bottom right
+      0, 1,  // top left
+      1, 1,  // top right
+    ],
+    indices:  [
+      0, 1, 2,  // primeiro triângulo
+      2, 1, 3,  // segundo triângulo
+    ],
+  })
 
   // só o default, vai ser overwritten no drawscene depois mesmo
   const uniforms = {
