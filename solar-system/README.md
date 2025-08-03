@@ -11,11 +11,16 @@ https://github.com/metaory/shadertoy2webgl/tree/master/src
 
 Todo:
 
-- Adicionar iluminação e shader bonito no sol
-- Adicionar mais um cometa ou satélite ou algo assim
-- Adicionar shader nos cometas/sondas
-- Carregar aync as texturas, isso tá ferrando com a lógica do tempo
-- As trajetórias tem imperfeições, precisa de correções pra fechar uma órbita bonita sem "overwrite" ou espaços faltando. Bolar algo pra arrumar isso
+<!-- - Adicionar iluminação e shader bonito no sol -->
+<!-- - Adicionar mais um cometa ou satélite ou algo assim -->
+<!-- - Adicionar shader nos cometas/sondas -->
+<!-- - As trajetórias tem imperfeições, precisa de correções pra fechar uma órbita bonita sem "overwrite" ou espaços faltando. Bolar algo pra arrumar isso -->
+<!--- Carregar aync as texturas, isso tá ferrando com a lógica do tempo-->
+
 - Adicionar algoritmo do lod se der tempo pra desenhar com menos detalhes dependendo da distância
   da camera
 - Adicionar lua da terra e lua de marte (phobos)
+- Verificar uma ultima vez a escala das coisas...
+- Tentar adicionar um shader mais bonito no sol
+- Tentar deixar o shader dos cometas mais bonitos
+- Refatorar esse código horroroso

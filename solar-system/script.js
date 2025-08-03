@@ -3,14 +3,16 @@
 import { CAMERA_CONTROLS, DIRECTIONS, DISTANCE_SCALE_FACTOR, SIMULATION_START_DATE, TEXTURES, TIME_SCALE, TRAJECTORIES } from "./constants.js"
 import { COMETS, COMET_DISPLAY_SCALE, COMET_ORBITAL_SPEEDS, COMET_SPEEDS, PLANETS, PLANETS_ROTATION_SPEED, PLANET_DISPLAY_SCALE, PLANET_ORBITAL_SPEEDS } from "./planets.js"
 import { bodyFragmentShader, bodyVertexShader, cometFragmentShader, cometTrailFragmentShader, cometTrailVertexShader, cometVertexShader, orbitFragmentShader, orbitVertexShader, skyboxFragmentShader, skyboxVertexShader, sunFragmentShader, sunVertexShader } from "./shaders.js"
-import { degToRad, formatDate, smoothTrajectory } from "./utils.js"
+import { degToRad, formatDate, smoothTrajectory, loadTextures, loadSingleTextureAsync } from "./utils.js"
 
 
 const height = document.documentElement.clientHeight
 
-function main() {
+async function main() {
   const canvas = document.querySelector("#canvas")
   const gl = canvas.getContext("webgl2")
+
+  const loader = document.querySelector(".loading-overlay")
 
   const playPauseButton = document.querySelector(".play-pause-button")
   const speedSlider = document.querySelector(".speed-slider")
@@ -89,17 +91,23 @@ function main() {
   const cometProgram = twgl.createProgramInfo(gl, [cometVertexShader, cometFragmentShader])
   const cometTrailProgram = twgl.createProgramInfo(gl, [cometTrailVertexShader, cometTrailFragmentShader])
 
-  const planetTextures = Object.keys(PLANETS).reduce((acc, planetKey) => {
-    acc[planetKey] = twgl.createTexture(gl, {
-      src: TEXTURES[planetKey],
-      crossOrigin: ''
-    })
+  let planetTextures = {}
+  let skyboxTexture = null
 
-    return acc
-  }, {})
+  try {
+    const planetTextureUrls = Object.keys(PLANETS).reduce((acc, planetKey) => {
+      acc[planetKey] = TEXTURES[planetKey]
+      return acc
+    }, {})
 
+    planetTextures = await loadTextures(gl, planetTextureUrls)
+    skyboxTexture = await loadSingleTextureAsync(gl, './assets/8k_stars_milky_way.jpg')
 
-  const skyboxTexture = twgl.createTexture(gl, { src: './assets/8k_stars_milky_way.jpg', crossOrigin: '' })
+    loader.classList.add('hidden')
+  } catch (error) {
+    console.error('erro ao carregar texturas:', error)
+    return
+  }
 
   const sun = createSunBuffer(gl, sunProgram, planetTextures['SUN'], PLANET_DISPLAY_SCALE.get(PLANETS.SUN))
   const planets = createPlanetsBuffer(gl, planetsProgram, planetTextures, PLANET_DISPLAY_SCALE)
