@@ -389,7 +389,7 @@ function createPlanetsBuffer(gl, program, textures, scale) {
     const radius = scale.get(planet)
 
     if (radius) {
-      const detail = [16, 8]
+      const detail = [80, 40]
 
       const buffer = flattenedPrimitives.createSphereBufferInfo(gl, radius, detail[0], detail[1])
 
