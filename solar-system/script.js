@@ -227,7 +227,10 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
       }
 
       gl.bindVertexArray(orbits[objectKey].vao)
-      gl.drawArrays(gl.LINE_LOOP, 0, orbits[objectKey].numElements)
+
+      const isComet = objectKey === 'VOYAGER' || objectKey === 'MACHHOLZ' || objectKey === 'HALLEY'
+
+      gl.drawArrays(isComet ? gl.LINES : gl.LINE_LOOP, 0, orbits[objectKey].numElements)
     }
   })
 
@@ -243,7 +246,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, [0, 0, 0], 0, sunRotation)
     } else {
       const orbitalSpeed = PLANET_ORBITAL_SPEEDS.get(planet)
-      const planetPosition = getBodyPosition(time * 0.2 * orbitalSpeed, TRAJECTORIES[planetKey])
+      const planetPosition = getBodyPosition(time * 0.01 * orbitalSpeed, TRAJECTORIES[planetKey])
       const planetRotation = time * planetRotationSpeed
       planetRenderable.uniforms.u_matrix = computeMatrix(viewProjectionMatrix, planetPosition, 0, planetRotation)
     }
@@ -351,7 +354,7 @@ function getBodyPosition(time, trajectory) {
   const nextPoint = trajectory[nextIndex]
 
   const t = (time * trajectoryLength) % 1
-
+  
   const x = currentPoint.x + (nextPoint.x - currentPoint.x) * t
   const y = currentPoint.z + (nextPoint.z - currentPoint.z) * t
   const z = currentPoint.y + (nextPoint.y - currentPoint.y) * t

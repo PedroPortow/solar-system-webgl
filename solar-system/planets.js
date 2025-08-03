@@ -61,16 +61,21 @@ export const PLANETS = {
   },
 };
 
-export const COMETS = {
-  HALLEY: {
+export const COMETS = {  //  TODO: n é só comenta né, arrumar isso
+  HALLEY: {  //  TODO: arrumar esses dados
     radius: 5.5,
     orbitalPeriod: 27503,
     rotationPeriod: 2.2,
   },
-  VOYAGER: {
+  VOYAGER: {  //  TODO: arrumar esses dados
     radius: 3.0,
     orbitalPeriod: 20000,
     rotationPeriod: 1.5,
+  },
+  MACHHOLZ: { //  TODO: arrumar esses dados
+    radius: 1.0,
+    orbitalPeriod: 100000,
+    rotationPeriod: 1.0,
   }
 }
 
@@ -90,6 +95,7 @@ export const PLANET_DISPLAY_SCALE = new Map([
 export const COMET_DISPLAY_SCALE = new Map([
   [COMETS.HALLEY, 40],
   [COMETS.VOYAGER, 30],
+  [COMETS.MACHHOLZ, 20],      
 ]);
 
 // reza a lenda que um dia vou deixar isso bonito com oop
@@ -116,16 +122,20 @@ export const COMET_SPEEDS = new Map([
     rotation: baseSpeed / COMETS.VOYAGER.rotationPeriod,
     orbit: baseSpeed / COMETS.VOYAGER.orbitalPeriod * 0.3
   }],
+  [COMETS.MACHHOLZ, {
+    rotation: baseSpeed / COMETS.MACHHOLZ.rotationPeriod,
+    orbit: baseSpeed / COMETS.MACHHOLZ.orbitalPeriod * 0.1
+  }],
 ]);
 
 export const PLANET_ORBITAL_SPEEDS = new Map([
-    [PLANETS.MERCURY, PLANETS.EARTH.orbitalPeriod / PLANETS.MERCURY.orbitalPeriod],
-    [PLANETS.VENUS, PLANETS.EARTH.orbitalPeriod / PLANETS.VENUS.orbitalPeriod],     
-    [PLANETS.EARTH, 1.0],                                                          
-    [PLANETS.MARS, PLANETS.EARTH.orbitalPeriod / PLANETS.MARS.orbitalPeriod],      
-    [PLANETS.JUPITER, PLANETS.EARTH.orbitalPeriod / PLANETS.JUPITER.orbitalPeriod],
-    [PLANETS.SATURN, PLANETS.EARTH.orbitalPeriod / PLANETS.SATURN.orbitalPeriod],   
-    [PLANETS.URANUS, PLANETS.EARTH.orbitalPeriod / PLANETS.URANUS.orbitalPeriod],  
-    [PLANETS.NEPTUNE, PLANETS.EARTH.orbitalPeriod / PLANETS.NEPTUNE.orbitalPeriod], 
-    [PLANETS.PLUTO, PLANETS.EARTH.orbitalPeriod / PLANETS.PLUTO.orbitalPeriod],  
+  [PLANETS.MERCURY, PLANETS.EARTH.orbitalPeriod / PLANETS.MERCURY.orbitalPeriod],
+  [PLANETS.VENUS, PLANETS.EARTH.orbitalPeriod / PLANETS.VENUS.orbitalPeriod],     
+  [PLANETS.EARTH, 1.0],                                                          
+  [PLANETS.MARS, PLANETS.EARTH.orbitalPeriod / PLANETS.MARS.orbitalPeriod],      
+  [PLANETS.JUPITER, PLANETS.EARTH.orbitalPeriod / PLANETS.JUPITER.orbitalPeriod],
+  [PLANETS.SATURN, PLANETS.EARTH.orbitalPeriod / PLANETS.SATURN.orbitalPeriod],   
+  [PLANETS.URANUS, PLANETS.EARTH.orbitalPeriod / PLANETS.URANUS.orbitalPeriod],  
+  [PLANETS.NEPTUNE, PLANETS.EARTH.orbitalPeriod / PLANETS.NEPTUNE.orbitalPeriod], 
+  [PLANETS.PLUTO, PLANETS.EARTH.orbitalPeriod / PLANETS.PLUTO.orbitalPeriod],  
 ]);

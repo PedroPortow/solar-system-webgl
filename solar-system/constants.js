@@ -1,6 +1,7 @@
 import { EARTH_TRAJECTORY } from "./trajectories/earthTrajectory.js"
 import { HALLEY_TRAJECTORY } from "./trajectories/halleyTrajectory.js"
 import { JUPITER_TRAJECTORY } from "./trajectories/jupiterTrajectory.js"
+import { MACHHOLZ_TRAJECTORY } from "./trajectories/machholzTrajectory.js"
 import { MARS_TRAJECTORY } from "./trajectories/marsTrajectory.js"
 import { MERCURY_TRAJECTORY } from "./trajectories/mercuryTrajectory.js"
 import { NEPTUNE_TRAJECTORY } from "./trajectories/neptuneTrajectory.js"
@@ -24,6 +25,8 @@ export const TEXTURES = {
   'SUN': './assets/8k_sun.jpg',
   'PLUTO': './assets/plutomap2k.jpg',
   'HALLEY': './assets/2k_mercury.jpg',
+  'MACHHOLZ': './assets/2k_mercury.jpg',
+  'VOYAGER': './assets/2k_mercury.jpg',
 }
 
 export const TRAJECTORIES = {
@@ -37,7 +40,8 @@ export const TRAJECTORIES = {
   'URANUS': URANUS_TRAJECTORY,
   'VENUS': VENUS_TRAJECTORY,
   'HALLEY': HALLEY_TRAJECTORY,
-  'VOYAGER': VOYAGER_TRAJECTORY
+  'VOYAGER': VOYAGER_TRAJECTORY,
+  'MACHHOLZ': MACHHOLZ_TRAJECTORY
 }
 
 
