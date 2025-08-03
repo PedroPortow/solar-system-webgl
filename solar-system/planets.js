@@ -69,7 +69,7 @@ export const COMETS = {
   },
   VOYAGER: {
     radius: 3.0,
-    orbitalPeriod: 43800, // ~120 anos 
+    orbitalPeriod: 43800, // ~120 anos
     rotationPeriod: 1.5,
   },
   MACHHOLZ: {
@@ -80,22 +80,22 @@ export const COMETS = {
 }
 
 export const PLANET_DISPLAY_SCALE = new Map([
-  [PLANETS?.SUN, 50],
-  [PLANETS?.EARTH, 10],
-  [PLANETS?.MERCURY, 10],
-  [PLANETS?.VENUS, 10],
-  [PLANETS?.MARS, 10],
-  [PLANETS?.JUPITER, 50],
-  [PLANETS?.SATURN, 70],
-  [PLANETS?.URANUS, 80],
-  [PLANETS?.NEPTUNE, 90],
-  [PLANETS?.PLUTO, 100],
+  [PLANETS?.SUN, 100],
+  [PLANETS?.JUPITER, 15],
+  [PLANETS?.SATURN, 13],
+  [PLANETS?.URANUS, 6],
+  [PLANETS?.NEPTUNE, 6],
+  [PLANETS?.EARTH, 3],
+  [PLANETS?.VENUS, 3],
+  [PLANETS?.MARS, 2],
+  [PLANETS?.MERCURY, 1.5],
+  [PLANETS?.PLUTO, 1],
 ]);
 
 export const COMET_DISPLAY_SCALE = new Map([
   [COMETS.HALLEY, 10],
   [COMETS.VOYAGER, 10],
-  [COMETS.MACHHOLZ, 10],      
+  [COMETS.MACHHOLZ, 10],
 ]);
 
 // reza a lenda que um dia vou deixar isso bonito com oop
@@ -130,14 +130,14 @@ export const COMET_SPEEDS = new Map([
 
 export const PLANET_ORBITAL_SPEEDS = new Map([
   [PLANETS.MERCURY, PLANETS.EARTH.orbitalPeriod / PLANETS.MERCURY.orbitalPeriod],
-  [PLANETS.VENUS, PLANETS.EARTH.orbitalPeriod / PLANETS.VENUS.orbitalPeriod],     
-  [PLANETS.EARTH, 1.0],                                                          
-  [PLANETS.MARS, PLANETS.EARTH.orbitalPeriod / PLANETS.MARS.orbitalPeriod],      
+  [PLANETS.VENUS, PLANETS.EARTH.orbitalPeriod / PLANETS.VENUS.orbitalPeriod],
+  [PLANETS.EARTH, 1.0],
+  [PLANETS.MARS, PLANETS.EARTH.orbitalPeriod / PLANETS.MARS.orbitalPeriod],
   [PLANETS.JUPITER, PLANETS.EARTH.orbitalPeriod / PLANETS.JUPITER.orbitalPeriod],
-  [PLANETS.SATURN, PLANETS.EARTH.orbitalPeriod / PLANETS.SATURN.orbitalPeriod],   
-  [PLANETS.URANUS, PLANETS.EARTH.orbitalPeriod / PLANETS.URANUS.orbitalPeriod],  
-  [PLANETS.NEPTUNE, PLANETS.EARTH.orbitalPeriod / PLANETS.NEPTUNE.orbitalPeriod], 
-  [PLANETS.PLUTO, PLANETS.EARTH.orbitalPeriod / PLANETS.PLUTO.orbitalPeriod],  
+  [PLANETS.SATURN, PLANETS.EARTH.orbitalPeriod / PLANETS.SATURN.orbitalPeriod],
+  [PLANETS.URANUS, PLANETS.EARTH.orbitalPeriod / PLANETS.URANUS.orbitalPeriod],
+  [PLANETS.NEPTUNE, PLANETS.EARTH.orbitalPeriod / PLANETS.NEPTUNE.orbitalPeriod],
+  [PLANETS.PLUTO, PLANETS.EARTH.orbitalPeriod / PLANETS.PLUTO.orbitalPeriod],
 ]);
 
 export const COMET_ORBITAL_SPEEDS = new Map([

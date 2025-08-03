@@ -242,24 +242,23 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
   Object.keys(orbits).forEach(objectKey => {
-    if (objectKey !== 'program') {
-      if (objectKey === 'HALLEY') {
-        const halleyUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [1.0, 0.8, 0.2], u_alpha: 0.8 }
-        twgl.setUniforms(orbits.program, halleyUniforms)
-      } else if (objectKey === 'VOYAGER') {
-        const voyagerUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [0.2, 0.8, 1.0], u_alpha: 0.8 }
-        twgl.setUniforms(orbits.program, voyagerUniforms)
-      } else {
+    if (objectKey === 'program') return
 
+    if (objectKey === 'HALLEY') {
+      const halleyUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [1.0, 0.8, 0.2], u_alpha: 0.8 }
+      twgl.setUniforms(orbits.program, halleyUniforms)
+    } else if (objectKey === 'VOYAGER') {
+      const voyagerUniforms = { u_viewProjectionMatrix: viewProjectionMatrix, u_orbitColor: [0.2, 0.8, 1.0], u_alpha: 0.8 }
+      twgl.setUniforms(orbits.program, voyagerUniforms)
+    } else {
       twgl.setUniforms(orbits.program, orbitUniforms)
-      }
-
-      gl.bindVertexArray(orbits[objectKey].vao)
-
-      const isComet = objectKey === 'VOYAGER' || objectKey === 'MACHHOLZ' || objectKey === 'HALLEY'
-
-      gl.drawArrays(isComet ? gl.LINES : gl.LINE_LOOP, 0, orbits[objectKey].numElements)
     }
+
+    gl.bindVertexArray(orbits[objectKey].vao)
+
+    const isComet = objectKey === 'VOYAGER' || objectKey === 'MACHHOLZ' || objectKey === 'HALLEY'
+
+    gl.drawArrays(isComet ? gl.LINES : gl.LINE_LOOP, 0, orbits[objectKey].numElements)
   })
 
   gl.disable(gl.BLEND)
@@ -347,7 +346,7 @@ function drawScene({ time, gl, fieldOfViewRadians, objectsToDraw, planets, comet
     const cometTrailRenderable = cometTrails[cometKey]
 
     for (let i = 0; i < history.length - 1; i++) {
-      const alpha = (1.0 - (i / (history.length - 1))) * 0.8
+      const alpha = (1.0 - (i / (history.length - 1)))
       const trailPosition = history[i]
 
       const trailWorldMatrix = computeWorldMatrix(trailPosition, 0, 0)

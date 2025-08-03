@@ -100,21 +100,21 @@ export function loadTextures(gl, textureUrls, onProgress = () => {}) {
 
 export function loadSingleTextureAsync(gl, url) {
   return new Promise((resolve, reject) => {
-    const image = new Image()
-    image.crossOrigin = ''
+    const image = new Image();
+    image.crossOrigin = '';
 
     image.onload = () => {
       try {
         const texture = twgl.createTexture(gl, {
           src: image,
           crossOrigin: ''
-        })
-        resolve(texture)
+        });
+        resolve(texture);
       } catch (error) {
-        reject(error)
+        reject(error);
       }
-    }
+    };
 
-    image.src = url
-  })
+    image.src = url;
+  });
 }
