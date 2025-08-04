@@ -66,10 +66,11 @@ async function main() {
   })
 
   playPauseButton.addEventListener("click", () => {
-    isPaused = !isPaused
 
     playIcon.style.display = isPaused ? "none" : "block"
     pauseIcon.style.display = isPaused ? "block" : "none"
+
+    isPaused = !isPaused
 
     if (!isPaused) requestAnimationFrame(updateScene)
   })
