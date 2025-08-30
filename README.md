@@ -1,5 +1,7 @@
 Trabalho final da disciplina de Computação Gráfica da Universidade Federal de Pelotas.
 
+- [Deploy](https://pedroportow.github.io/solar-system-webgl/)
+
 ### Referências
 
 - [WebGL2 Fundamentals — Skybox](https://webgl2fundamentals.org/webgl/lessons/webgl-skybox.html)
